@@ -11,7 +11,7 @@ import (
 func main() {
 	router := gin.Default()
 	router.Use(cors.Default())
-	router.GET("/api/v1/report", controllers.HandleReportRequest)
+	router.GET("/v1/report", controllers.HandleReportRequest)
 	fmt.Println("Server started at: http://localhost:8080")
 	router.Run(":8080")
 }
