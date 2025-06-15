@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"time"
 
@@ -77,45 +78,159 @@ func GenerateDetailedExcel(reports []models.ReportDetails) ([]byte, error) {
 
 	// Định nghĩa tiêu đề
 	headers := []string{
-		"№", "Номер поставки", "Предмет", "Код номенклатуры", "Бренд", "Артикул поставщика", "Название", "Размер",
-		"Баркод", "Тип документа", "Дата заказа покупателем", "Дата продажи", "Кол-во", "Цена розничная",
-		"Согласованный продуктовый дисконт, %", "Промокод %", "Итоговая согласованная скидка, %",
-		"Цена розничная с учетом согласованной скидки", "Стикер МП", "Номер сборочного задания", "Код маркировки", "ШК", "Srid",
+		"№",
+		"Номер поставки",
+		"Предмет",
+		"Код номенклатуры",
+		"Бренд",
+		"Артикул поставщика",
+		"Название",
+		"Размер",
+		"Баркод",
+		"Тип документа",
+		"Обоснование для оплаты",
+		"Дата заказа покупателем",
+		"Дата продажи",
+		"Кол-во",
+		"Цена розничная",
+		"Вайлдберриз реализовал Товар (Пр)",
+		"Согласованный продуктовый дисконт, %",
+		"Промокод %",
+		"Итоговая согласованная скидка, %",
+		"Цена розничная с учетом согласованной скидки",
+		"Размер снижения кВВ из-за рейтинга, %",
+		"Размер изменения кВВ из-за акции, %",
+		"Скидка постоянного Покупателя (СПП), %",
+		"Размер кВВ, %",
+		"Размер  кВВ без НДС, % Базовый",
+		"Итоговый кВВ без НДС, %",
+		"Вознаграждение с продаж до вычета услуг поверенного, без НДС",
+		"Возмещение за выдачу и возврат товаров на ПВЗ",
+		"Эквайринг/Комиссии за организацию платежей",
+		"Размер комиссии за эквайринг/Комиссии за организацию платежей, %",
+		"Тип платежа за Эквайринг/Комиссии за организацию платежей",
+		"Вознаграждение Вайлдберриз (ВВ), без НДС",
+		"НДС с Вознаграждения Вайлдберриз",
+		"К перечислению Продавцу за реализованный Товар",
+		"Количество доставок",
+		"Количество возврата",
+		"Услуги по доставке товара покупателю",
+		"Дата начала действия фиксации",
+		"Дата конца действия фиксации",
+		"Признак услуги платной доставки",
+		"Общая сумма штрафов",
+		"Корректировка Вознаграждения Вайлдберриз (ВВ)",
+		"Виды логистики, штрафов и корректировок ВВ",
+		"Стикер МП",
+		"Наименование банка-эквайера",
+		"Номер офиса",
+		"Наименование офиса доставки",
+		"ИНН партнера",
+		"Партнер",
+		"Склад",
+		"Страна",
+		"Тип коробов",
+		"Номер таможенной декларации",
+		"Номер сборочного задания",
+		"Код маркировки",
+		"ШК",
+		"Srid",
+		"Возмещение издержек по перевозке/по складским операциям с товаром",
+		"Организатор перевозки",
+		"Хранение",
+		"Удержания",
+		"Платная приемка",
+		"Фиксированный коэффициент склада по поставке",
+		"Признак продажи юридическому лицу",
+		"Номер короба для платной приемки",
+		"Скидка по программе софинансирования",
+		"Скидка Wibes, %",
 	}
+
+	headerStyle, _ := f.NewStyle(&excelize.Style{
+		Font:      &excelize.Font{Bold: true},
+		Alignment: &excelize.Alignment{Vertical: "center", Horizontal: "center", WrapText: true},
+	})
+	f.SetRowHeight(sheet, 1, 40)
 
 	// Ghi tiêu đề
 	for i, h := range headers {
 		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
 		f.SetCellValue(sheet, cell, h)
+		f.SetCellStyle(sheet, cell, cell, headerStyle)
 	}
 
 	// Ghi dữ liệu
 	for i, r := range reports {
 		row := i + 2 // Dòng bắt đầu từ 2
 		data := []any{
-			i + 1,
-			r.RealizationReportID,
-			r.SubjectName,
-			r.NmID,
-			r.BrandName,
-			r.SaName,
-			r.TsName,
-			"", // Размер: bạn cần map nếu có trong struct
-			r.Barcode,
-			r.DocTypeName,
-			r.OrderDt.Format("2006-01-02"),
-			r.SaleDt.Format("2006-01-02"),
-			r.Quantity,
-			r.RetailPrice,
-			r.ProductDiscountForReport,
-			r.SupplierPromo,
-			r.SalePercent,
-			r.RetailPriceWithDiscRub,
-			r.StickerID,
-			r.AssemblyID,
-			r.Kiz,
-			r.ShkID,
-			r.Srid,
+			i + 1,                          // №
+			r.GiID,                         // Номер поставки
+			r.SubjectName,                  // Предмет
+			r.NmID,                         // Код номенклатуры
+			r.BrandName,                    // Бренд
+			r.SaName,                       // Артикул поставщика
+			"",                             // Название
+			r.TsName,                       // Размер
+			r.Barcode,                      // Баркод
+			r.DocTypeName,                  // Тип документа
+			r.SupplierOperName,             //Обоснование для оплаты
+			r.OrderDt.Format("2006-01-02"), // Дата заказа покупателем
+			r.SaleDt.Format("2006-01-02"),  // Дата продажи
+			r.Quantity,                     // Кол-во
+			r.RetailPrice,                  // Цена розничная
+			r.RetailAmount,                 // Вайлдберриз реализовал Товар (Пр)
+			0,                              // Согласованный продуктовый дисконт, %
+			"",                             // Промокод %
+			0,                              // Итоговая согласованная скидка, %
+			r.RetailPrice,                  // Цена розничная с учетом согласованной скидки
+			0,                              // Размер снижения кВВ из-за рейтинга, %
+			0,                              // Размер изменения кВВ из-за акции, %
+			r.PpvzSppPrc,                   // Скидка постоянного Покупателя (СПП), %
+			math.Round(r.CommissionPercent*100) / 100, // Размер кВВ, %
+			math.Round(r.PpvzKvwPrcBase*100) / 100,    // Размер  кВВ без НДС, % Базовый
+			math.Round(r.PpvzKvwPrc*100) / 100,        // Итоговый кВВ без НДС, %
+			r.PpvzSalesCommission,                     // Вознаграждение с продаж до вычета услуг поверенного, без НДС
+			0,                                         //Возмещение за выдачу и возврат товаров на ПВЗ
+			r.AcquiringFee,                            // Эквайринг/Комиссии за организацию платежей
+			r.AcquiringPercent,                        // Размер комиссии за эквайринг/Комиссии за организацию платежей, %
+			r.PaymentProcessing,                       // Тип платежа за Эквайринг/Комиссии за организацию платежей
+			math.Round(r.PpvzVw*100) / 100,            // Вознаграждение Вайлдберриз (ВВ), без НДС
+			r.PpvzVwNds,                               // НДС с Вознаграждения Вайлдберриз
+			r.PpvzForPay,                              // К перечислению Продавцу за реализованный Товар
+			r.DeliveryAmount,                          // Количество доставок
+			r.ReturnAmount,                            // Количество возврата
+			r.DeliveryRub,                             // Услуги по доставке товара покупателю
+			r.FixTariffDateFrom,                       // Дата начала действия фиксации
+			r.FixTariffDateTo,                         // Дата конца действия фиксации
+			"",                                        // Признак услуги платной доставки
+			0,                                         // Общая сумма штрафов
+			0,                                         // Корректировка Вознаграждения Вайлдберриз (ВВ)
+			r.BonusTypeName,                           // Виды логистики, штрафов и корректировок ВВ
+			r.StickerID,                               // Стикер МП
+			r.AcquiringBank,                           // Наименование банка-эквайера
+			r.PpvzOfficeID,                            // Номер офиса
+			r.PpvzOfficeName,                          // Наименование офиса доставки
+			"",                                        // ИНН партнера
+			"",                                        // Партнер
+			r.OfficeName,                              // Склад
+			r.SiteCountry,                             // Страна
+			r.GiBoxTypeName,                           // Тип коробов
+			"",                                        // Номер таможенной декларации
+			r.AssemblyID,                              // Номер сборочного задания
+			r.Kiz,                                     // Код маркировки
+			r.ShkID,                                   // ШК
+			r.Srid,                                    // Srid
+			r.RebillLogisticCost,                      // Возмещение издержек по перевозке/по складским операциям с товаром
+			r.RebillLogisticOrg,                       // Организатор перевозки
+			r.StorageFee,                              // Хранение
+			r.Deduction,                               // Удержания
+			r.Acceptance,                              // Платная приемка
+			r.DlvPrc,                                  // Фиксированный коэффициент склада по поставке
+			"Нет",                                     // Признак продажи юридическому лицу
+			0,                                         // Номер короба для платной приемки
+			0,                                         // Скидка по программе софинансирования
+			"",                                        // Скидка Wibes, %
 		}
 
 		for j, val := range data {
@@ -132,6 +247,18 @@ func GenerateDetailedExcel(reports []models.ReportDetails) ([]byte, error) {
 }
 
 func GenerateReportExcel(reports []models.ReportDetails) ([]byte, error) {
+	var grossRevenue float64          // Doanh thu gộp
+	var netRevenue float64            // Doanh thu thuần
+	var reductionInRevenue float64    // Giảm trừ doanh thu
+	var logisticsExpenses float64     // Chi phí logistic
+	var otherExpenses float64         // Chi phí khác
+	var revenueExcludingCOGS float64  // Doanh thu chưa trừ giá vốn
+	var estimatedCOGS float64         // Giá vốn ước lượng
+	var revenueExcludingTaxes float64 // Doanh thu giảm trừ thuế
+	var grossProfitToal float64       // Lãi gộp
+	var tax float64                   // Thuế(6%)
+	var netProfit float64             // Lãi ròng
+
 	f := excelize.NewFile()
 	sheet := "Report"
 	f.SetSheetName("Sheet1", sheet)
@@ -204,7 +331,9 @@ func GenerateReportExcel(reports []models.ReportDetails) ([]byte, error) {
 	f.SetCellStyle(sheet, "A2", "C2", titleStyleDark)
 	row := 3
 	for _, r := range reports {
-		if r.SupplierOperName == "Продажа" {
+		if r.DocTypeName == "Продажа" {
+			grossRevenue += r.RetailPrice
+			netRevenue += r.PpvzForPay
 			f.SetCellValue(sheet, fmt.Sprintf("A%d", row), r.SaName)
 			f.SetCellValue(sheet, fmt.Sprintf("B%d", row), r.RetailPrice)
 			f.SetCellValue(sheet, fmt.Sprintf("C%d", row), r.PpvzForPay)
@@ -276,10 +405,12 @@ func GenerateReportExcel(reports []models.ReportDetails) ([]byte, error) {
 	f.SetCellStyle(sheet, "F2", "H2", titleStyleDark)
 	row = 3
 	for _, r := range reports {
-		if r.ReturnAmount > 0 {
+		if r.DocTypeName == "Возврат" {
+			revenueExcludingTaxes += r.RetailPrice
+			reductionInRevenue += r.PpvzForPay
 			f.SetCellValue(sheet, fmt.Sprintf("F%d", row), r.SaName)
 			f.SetCellValue(sheet, fmt.Sprintf("G%d", row), r.RetailPrice)
-			f.SetCellValue(sheet, fmt.Sprintf("H%d", row), r.RetailPriceWithDiscRub)
+			f.SetCellValue(sheet, fmt.Sprintf("H%d", row), r.PpvzForPay)
 			row++
 		}
 	}
@@ -347,9 +478,10 @@ func GenerateReportExcel(reports []models.ReportDetails) ([]byte, error) {
 	f.SetCellStyle(sheet, "K2", "L2", titleStyleDark)
 	row = 3
 	for _, r := range reports {
-		if r.RebillLogisticCost > 0 {
+		if r.SupplierOperName == "Логистика" {
+			logisticsExpenses += r.DeliveryRub
 			f.SetCellValue(sheet, fmt.Sprintf("K%d", row), r.SaName)
-			f.SetCellValue(sheet, fmt.Sprintf("L%d", row), r.RebillLogisticCost)
+			f.SetCellValue(sheet, fmt.Sprintf("L%d", row), r.DeliveryRub)
 			row++
 		}
 	}
@@ -417,9 +549,9 @@ func GenerateReportExcel(reports []models.ReportDetails) ([]byte, error) {
 	f.SetCellStyle(sheet, "O2", "P2", titleStyleDark)
 	row = 3
 	for _, r := range reports {
-		if r.Penalty > 0 && r.BonusTypeName != "" {
+		if r.SupplierOperName == "Логистика" && r.ReturnAmount == 1 {
 			f.SetCellValue(sheet, fmt.Sprintf("O%d", row), r.SaName)
-			f.SetCellValue(sheet, fmt.Sprintf("P%d", row), r.Penalty)
+			f.SetCellValue(sheet, fmt.Sprintf("P%d", row), r.DeliveryRub)
 			row++
 		}
 	}
@@ -490,15 +622,22 @@ func GenerateReportExcel(reports []models.ReportDetails) ([]byte, error) {
 	f.SetCellValue(sheet, "S5", "Chi phí quảng cáo")
 	f.SetCellValue(sheet, "S6", "Chi phí chấp nhận")
 	f.SetCellValue(sheet, "S7", "Tổng")
-	var totalOtherCost float64
+	var fines float64
+	var storageCosts float64
+	var advCosts float64
+	var acceptanceCosts float64
 	for _, r := range reports {
-		totalOtherCost += r.Penalty + r.StorageFee + r.SupplierPromo + r.Acceptance
+		fines += r.Penalty
+		storageCosts += r.StorageFee
+		advCosts += r.Deduction
+		acceptanceCosts += r.Acceptance
 	}
-	f.SetCellValue(sheet, "T3", totalOtherCost) // Tiền phạt tổng
-	f.SetCellValue(sheet, "T4", totalOtherCost) // Chi phí lưu trữ tổng
-	f.SetCellValue(sheet, "T5", totalOtherCost) // Chi phí quảng cáo tổng
-	f.SetCellValue(sheet, "T6", totalOtherCost) // Chi phí chấp nhận tổng
-	f.SetCellValue(sheet, "T7", totalOtherCost) // Tổng chi phí khác
+	otherExpenses = fines + storageCosts + advCosts + acceptanceCosts
+	f.SetCellValue(sheet, "T3", fines)           // Tiền phạt
+	f.SetCellValue(sheet, "T4", storageCosts)    // Chi phí lưu trữ
+	f.SetCellValue(sheet, "T5", advCosts)        // Chi phí quảng cáo
+	f.SetCellValue(sheet, "T6", acceptanceCosts) // Chi phí chấp nhận
+	f.SetCellValue(sheet, "T7", otherExpenses)   // Tổng
 
 	// Bảng Tổng kết (W1:AG2)
 	headerStyleLight, _ = f.NewStyle(&excelize.Style{
@@ -555,46 +694,38 @@ func GenerateReportExcel(reports []models.ReportDetails) ([]byte, error) {
 			},
 		},
 	})
+	revenueExcludingCOGS = netRevenue - reductionInRevenue - logisticsExpenses - otherExpenses
+	estimatedCOGS = (grossRevenue - revenueExcludingTaxes) / 3.5
+	grossProfitToal = revenueExcludingCOGS - estimatedCOGS
+	tax = (grossRevenue - revenueExcludingTaxes) * 0.06
+	netProfit = grossProfitToal - tax
 	f.SetCellValue(sheet, "W1", "BẢNG TỔNG KẾT")
 	f.MergeCell(sheet, "W1", "AG1")
 	f.SetCellStyle(sheet, "W1", "AG1", headerStyleLight)
-	f.SetCellValue(sheet, "W2", "Doanh thu gộp")
-	f.SetCellValue(sheet, "X2", "Doanh thu thuần")
-	f.SetCellValue(sheet, "Y2", "Giảm trừ doanh thu")
+	f.SetCellValue(sheet, "W2", "Doanh thu gộp(từ giá gốc)")
+	f.SetCellValue(sheet, "X2", "Doanh thu thuần(đã trừ phí wb)")
+	f.SetCellValue(sheet, "Y2", "Giảm trừ doanh thu(hàng trả lại)")
 	f.SetCellValue(sheet, "Z2", "Chi phí logistic")
 	f.SetCellValue(sheet, "AA2", "Chi phí khác")
 	f.SetCellValue(sheet, "AB2", "Doanh thu chưa trừ giá vốn")
 	f.SetCellValue(sheet, "AC2", "Giá vốn ước lượng")
 	f.SetCellValue(sheet, "AD2", "Doanh thu giảm trừ thuế")
 	f.SetCellValue(sheet, "AE2", "Lãi gộp")
-	f.SetCellStyle(sheet, "W2", "AE2", titleStyleDark)
+	f.SetCellValue(sheet, "AF2", "Thuế(6%)")
+	f.SetCellValue(sheet, "AG2", "Lãi ròng")
+	f.SetCellStyle(sheet, "W2", "AG2", titleStyleDark)
 
-	var grossRevenue, netRevenue, returnDeduction, logisticCost, otherCost, costOfGoods float64
-	for _, r := range reports {
-		if r.SupplierOperName == "Продажа" {
-			grossRevenue += r.RetailPrice * float64(r.Quantity)
-			netRevenue += r.PpvzForPay
-		}
-		if r.ReturnAmount > 0 {
-			returnDeduction += r.RetailPriceWithDiscRub * float64(r.ReturnAmount)
-		}
-		logisticCost += r.RebillLogisticCost
-		otherCost += r.Penalty + r.StorageFee + r.SupplierPromo + r.Acceptance
-		costOfGoods += r.RetailPrice * float64(r.Quantity) * 0.7 // Giả sử giá vốn 70%
-	}
-	revenueBeforeCOGS := netRevenue - logisticCost - otherCost
-	taxDeduction := revenueBeforeCOGS * 0.2 // Giả sử thuế 20%
-	grossProfit := revenueBeforeCOGS - costOfGoods
-
-	f.SetCellValue(sheet, "W3", grossRevenue)
-	f.SetCellValue(sheet, "X3", netRevenue)
-	f.SetCellValue(sheet, "Y3", returnDeduction)
-	f.SetCellValue(sheet, "Z3", logisticCost)
-	f.SetCellValue(sheet, "AA3", otherCost)
-	f.SetCellValue(sheet, "AB3", revenueBeforeCOGS)
-	f.SetCellValue(sheet, "AC3", costOfGoods)
-	f.SetCellValue(sheet, "AD3", revenueBeforeCOGS-taxDeduction)
-	f.SetCellValue(sheet, "AE3", grossProfit)
+	f.SetCellValue(sheet, "W3", math.Round(grossRevenue*100)/100)
+	f.SetCellValue(sheet, "X3", math.Round(netRevenue*100)/100)
+	f.SetCellValue(sheet, "Y3", math.Round(reductionInRevenue*100)/100)
+	f.SetCellValue(sheet, "Z3", math.Round(logisticsExpenses*100)/100)
+	f.SetCellValue(sheet, "AA3", math.Round(otherExpenses*100)/100)
+	f.SetCellValue(sheet, "AB3", math.Round(revenueExcludingCOGS*100)/100)
+	f.SetCellValue(sheet, "AC3", math.Round(estimatedCOGS*100)/100)
+	f.SetCellValue(sheet, "AD3", math.Round(revenueExcludingTaxes*100)/100)
+	f.SetCellValue(sheet, "AE3", math.Round(grossProfitToal*100)/100)
+	f.SetCellValue(sheet, "AF3", math.Round(tax*100)/100)
+	f.SetCellValue(sheet, "AG3", math.Round(netProfit*100)/100)
 
 	var buf bytes.Buffer
 	if err := f.Write(&buf); err != nil {

@@ -16,10 +16,20 @@ type ReportRequest struct {
 	DateTo   string `form:"dateTo" binding:"required"`
 }
 
+// @Summary      Generate and download report files
+// @Description  Generates two Excel report files based on API key and date range, zips them, and returns the ZIP file for download
+// @Tags         reports
+// @Accept       json
+// @Produce      application/zip
+// @Param        request  body      ReportRequest  true  "Report request parameters"
+// @Success      200      {file}    binary         "ZIP file containing report1.xlsx and report2.xlsx"
+// @Failure      400      {object}  map[string]string  "Invalid request parameters or date format"
+// @Failure      500      {object}  map[string]string  "Internal server error"
+// @Router       /reports [post]
 func HandleReportRequest(c *gin.Context) {
 	var req ReportRequest
 
-	if err := c.ShouldBindQuery(&req); err != nil {
+	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

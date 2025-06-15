@@ -1,0 +1,58 @@
+basePath: /v1
+definitions:
+  controllers.ReportRequest:
+    properties:
+      apiKey:
+        type: string
+      dateFrom:
+        type: string
+      dateTo:
+        type: string
+    required:
+    - apiKey
+    - dateFrom
+    - dateTo
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: This is a sample server for Gin with Swagger.
+  title: API Documentation
+  version: "1.0"
+paths:
+  /reports:
+    post:
+      consumes:
+      - application/json
+      description: Generates two Excel report files based on API key and date range,
+        zips them, and returns the ZIP file for download
+      parameters:
+      - description: Report request parameters
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.ReportRequest'
+      produces:
+      - application/zip
+      responses:
+        "200":
+          description: ZIP file containing report1.xlsx and report2.xlsx
+          schema:
+            type: file
+        "400":
+          description: Invalid request parameters or date format
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Generate and download report files
+      tags:
+      - reports
+swagger: "2.0"
