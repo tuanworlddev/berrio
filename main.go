@@ -21,7 +21,7 @@ func main() {
 	router := gin.Default()
 	router.Use(cors.Default())
 
-	v1 := router.Group("/v1")
+	v1 := router.Group("/api/v1")
 	{
 		v1.POST("/reports", controllers.HandleReportRequest)
 	}
