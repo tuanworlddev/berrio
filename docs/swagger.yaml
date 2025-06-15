@@ -8,10 +8,16 @@ definitions:
         type: string
       dateTo:
         type: string
+      discount:
+        type: number
+      tax:
+        type: number
     required:
     - apiKey
     - dateFrom
     - dateTo
+    - discount
+    - tax
     type: object
 host: localhost:8080
 info:

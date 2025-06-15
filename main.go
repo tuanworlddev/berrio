@@ -14,7 +14,7 @@ import (
 
 // @title API Documentation
 // @version         1.0
-// @description     This is a sample server for Gin with Swagger.
+// @description     Report Service.
 // @host            localhost:8080
 // @BasePath        /v1
 func main() {

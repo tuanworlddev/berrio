@@ -68,7 +68,9 @@
             "required": [
                 "apiKey",
                 "dateFrom",
-                "dateTo"
+                "dateTo",
+                "discount",
+                "tax"
             ],
             "properties": {
                 "apiKey": {
@@ -79,6 +81,12 @@
                 },
                 "dateTo": {
                     "type": "string"
+                },
+                "discount": {
+                    "type": "number"
+                },
+                "tax": {
+                    "type": "number"
                 }
             }
         }

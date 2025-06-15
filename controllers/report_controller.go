@@ -14,8 +14,8 @@ type ReportRequest struct {
 	APIKey   string  `form:"apiKey" binding:"required"`
 	DateFrom string  `form:"dateFrom" binding:"required"`
 	DateTo   string  `form:"dateTo" binding:"required"`
-	Tax      float64 `form:"tax"`
-	Discount float64 `form:"discount"`
+	Tax      float64 `form:"tax" binding:"required"`
+	Discount float64 `form:"discount" binding:"required"`
 }
 
 // @Summary      Generate and download report files

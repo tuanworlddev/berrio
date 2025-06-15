@@ -74,7 +74,9 @@ const docTemplate = `{
             "required": [
                 "apiKey",
                 "dateFrom",
-                "dateTo"
+                "dateTo",
+                "discount",
+                "tax"
             ],
             "properties": {
                 "apiKey": {
@@ -85,6 +87,12 @@ const docTemplate = `{
                 },
                 "dateTo": {
                     "type": "string"
+                },
+                "discount": {
+                    "type": "number"
+                },
+                "tax": {
+                    "type": "number"
                 }
             }
         }
