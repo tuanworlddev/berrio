@@ -11,9 +11,11 @@ import (
 )
 
 type ReportRequest struct {
-	APIKey   string `form:"apiKey" binding:"required"`
-	DateFrom string `form:"dateFrom" binding:"required"`
-	DateTo   string `form:"dateTo" binding:"required"`
+	APIKey   string  `form:"apiKey" binding:"required"`
+	DateFrom string  `form:"dateFrom" binding:"required"`
+	DateTo   string  `form:"dateTo" binding:"required"`
+	Tax      float64 `form:"tax"`
+	Discount float64 `form:"discount"`
 }
 
 // @Summary      Generate and download report files
@@ -34,6 +36,13 @@ func HandleReportRequest(c *gin.Context) {
 		return
 	}
 
+	if req.Tax == 0 {
+		req.Tax = 0.06
+	}
+	if req.Discount == 0 {
+		req.Discount = 3.5
+	}
+
 	dateFrom, err := time.Parse(time.RFC3339, req.DateFrom)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid dateFrom format. Use YYYY-MM-DD"})
@@ -52,7 +61,7 @@ func HandleReportRequest(c *gin.Context) {
 	}
 
 	report1, err1 := services.GenerateDetailedExcel(reports)
-	report2, err2 := services.GenerateReportExcel(reports)
+	report2, err2 := services.GenerateReportExcel(reports, req.Tax, req.Discount)
 
 	if err1 != nil || err2 != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate Excel files"})

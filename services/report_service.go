@@ -246,7 +246,7 @@ func GenerateDetailedExcel(reports []models.ReportDetails) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func GenerateReportExcel(reports []models.ReportDetails) ([]byte, error) {
+func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float64) ([]byte, error) {
 	var grossRevenue float64          // Doanh thu gộp
 	var netRevenue float64            // Doanh thu thuần
 	var reductionInRevenue float64    // Giảm trừ doanh thu
@@ -695,9 +695,9 @@ func GenerateReportExcel(reports []models.ReportDetails) ([]byte, error) {
 		},
 	})
 	revenueExcludingCOGS = netRevenue - reductionInRevenue - logisticsExpenses - otherExpenses
-	estimatedCOGS = (grossRevenue - revenueExcludingTaxes) / 3.5
+	estimatedCOGS = (grossRevenue - revenueExcludingTaxes) / discountPt
 	grossProfitToal = revenueExcludingCOGS - estimatedCOGS
-	tax = (grossRevenue - revenueExcludingTaxes) * 0.06
+	tax = (grossRevenue - revenueExcludingTaxes) * taxPt
 	netProfit = grossProfitToal - tax
 	f.SetCellValue(sheet, "W1", "BẢNG TỔNG KẾT")
 	f.MergeCell(sheet, "W1", "AG1")
