@@ -44,7 +44,7 @@ type ReportDetails struct {
 	PpvzKvwPrcBase               float64   `json:"ppvz_kvw_prc_base"`
 	PpvzKvwPrc                   float64   `json:"ppvz_kvw_prc"`
 	SupRatingPrcUp               float64   `json:"sup_rating_prc_up"`
-	IsKgvpV2                     int       `json:"is_kgvp_v2"`
+	IsKgvpV2                     float64   `json:"is_kgvp_v2"`
 	PpvzSalesCommission          float64   `json:"ppvz_sales_commission"`
 	PpvzForPay                   float64   `json:"ppvz_for_pay"`
 	PpvzReward                   float64   `json:"ppvz_reward"`
