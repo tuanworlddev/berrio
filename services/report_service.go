@@ -349,61 +349,6 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 		}
 	}
 
-	// Bảng Hàng mua bị trả lại (F1:H3+)
-	headerStyleLight, _ = f.NewStyle(&excelize.Style{
-		Font:      &excelize.Font{Size: 13, Bold: true, Color: "FFFFFF"},
-		Fill:      excelize.Fill{Type: "pattern", Color: []string{"FF6600"}, Pattern: 1}, // Cam nhạt
-		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
-		Border: []excelize.Border{
-			{
-				Type:  "left",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "right",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "top",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "bottom",
-				Color: "000000",
-				Style: 1,
-			},
-		},
-	})
-	titleStyleDark, _ = f.NewStyle(&excelize.Style{
-		Font:      &excelize.Font{Size: 13, Bold: true, Color: "FFFFFF"},
-		Fill:      excelize.Fill{Type: "pattern", Color: []string{"FF6600"}, Pattern: 1}, // Cam đậm
-		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
-		Border: []excelize.Border{
-			{
-				Type:  "left",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "right",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "top",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "bottom",
-				Color: "000000",
-				Style: 1,
-			},
-		},
-	})
 	f.SetCellValue(sheet, "F1", "BẢNG HÀNG MUA BỊ TRẢ LẠI")
 	f.MergeCell(sheet, "F1", "H1")
 	f.SetCellStyle(sheet, "F1", "H1", headerStyleLight)
@@ -423,61 +368,6 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 		}
 	}
 
-	// Bảng Phí logistic (K1:L3+)
-	headerStyleLight, _ = f.NewStyle(&excelize.Style{
-		Font:      &excelize.Font{Size: 13, Bold: true, Color: "FFFFFF"},
-		Fill:      excelize.Fill{Type: "pattern", Color: []string{"0066CC"}, Pattern: 1}, // Xanh dương nhạt
-		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
-		Border: []excelize.Border{
-			{
-				Type:  "left",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "right",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "top",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "bottom",
-				Color: "000000",
-				Style: 1,
-			},
-		},
-	})
-	titleStyleDark, _ = f.NewStyle(&excelize.Style{
-		Font:      &excelize.Font{Bold: true, Color: "FFFFFF"},
-		Fill:      excelize.Fill{Type: "pattern", Color: []string{"0066CC"}, Pattern: 1}, // Xanh dương đậm
-		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
-		Border: []excelize.Border{
-			{
-				Type:  "left",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "right",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "top",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "bottom",
-				Color: "000000",
-				Style: 1,
-			},
-		},
-	})
 	f.SetCellValue(sheet, "K1", "BẢNG PHÍ LOGISTIC")
 	f.MergeCell(sheet, "K1", "L1")
 	f.SetCellStyle(sheet, "K1", "L1", headerStyleLight)
@@ -494,61 +384,6 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 		}
 	}
 
-	// Bảng Phí đơn hàng bị hủy/không mua (O1:P3+)
-	headerStyleLight, _ = f.NewStyle(&excelize.Style{
-		Font:      &excelize.Font{Size: 13, Bold: true, Color: "FFFFFF"},
-		Fill:      excelize.Fill{Type: "pattern", Color: []string{"CC0000"}, Pattern: 1}, // Đỏ nhạt
-		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
-		Border: []excelize.Border{
-			{
-				Type:  "left",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "right",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "top",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "bottom",
-				Color: "000000",
-				Style: 1,
-			},
-		},
-	})
-	titleStyleDark, _ = f.NewStyle(&excelize.Style{
-		Font:      &excelize.Font{Bold: true, Color: "FFFFFF"},
-		Fill:      excelize.Fill{Type: "pattern", Color: []string{"CC0000"}, Pattern: 1}, // Đỏ đậm
-		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
-		Border: []excelize.Border{
-			{
-				Type:  "left",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "right",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "top",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "bottom",
-				Color: "000000",
-				Style: 1,
-			},
-		},
-	})
 	f.SetCellValue(sheet, "O1", "BẢNG PHÍ ĐƠN HÀNG BỊ HỦY OR KHÔNG MUA")
 	f.MergeCell(sheet, "O1", "P1")
 	f.SetCellStyle(sheet, "O1", "P1", headerStyleLight)
@@ -564,61 +399,6 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 		}
 	}
 
-	// Bảng Chi phí khác (S1:T7)
-	headerStyleLight, _ = f.NewStyle(&excelize.Style{
-		Font:      &excelize.Font{Size: 13, Bold: true, Color: "FFFFFF"},
-		Fill:      excelize.Fill{Type: "pattern", Color: []string{"6600CC"}, Pattern: 1}, // Tím nhạt
-		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
-		Border: []excelize.Border{
-			{
-				Type:  "left",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "right",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "top",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "bottom",
-				Color: "000000",
-				Style: 1,
-			},
-		},
-	})
-	titleStyleDark, _ = f.NewStyle(&excelize.Style{
-		Font:      &excelize.Font{Size: 13, Bold: true, Color: "FFFFFF"},
-		Fill:      excelize.Fill{Type: "pattern", Color: []string{"6600CC"}, Pattern: 1}, // Tím đậm
-		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
-		Border: []excelize.Border{
-			{
-				Type:  "left",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "right",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "top",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "bottom",
-				Color: "000000",
-				Style: 1,
-			},
-		},
-	})
 	f.SetCellValue(sheet, "S1", "BẢNG CHI PHÍ KHÁC")
 	f.MergeCell(sheet, "S1", "T1")
 	f.SetCellStyle(sheet, "S1", "T1", headerStyleLight)
@@ -647,61 +427,6 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 	f.SetCellValue(sheet, "T6", acceptanceCosts) // Chi phí chấp nhận
 	f.SetCellValue(sheet, "T7", otherExpenses)   // Tổng
 
-	// Bảng Tổng kết (W1:AG2)
-	headerStyleLight, _ = f.NewStyle(&excelize.Style{
-		Font:      &excelize.Font{Size: 13, Bold: true, Color: "FFFFFF"},
-		Fill:      excelize.Fill{Type: "pattern", Color: []string{"FFCC00"}, Pattern: 1}, // Vàng nhạt
-		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
-		Border: []excelize.Border{
-			{
-				Type:  "left",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "right",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "top",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "bottom",
-				Color: "000000",
-				Style: 1,
-			},
-		},
-	})
-	titleStyleDark, _ = f.NewStyle(&excelize.Style{
-		Font:      &excelize.Font{Size: 13, Bold: true, Color: "FFFFFF"},
-		Fill:      excelize.Fill{Type: "pattern", Color: []string{"FFCC00"}, Pattern: 1}, // Vàng đậm
-		Alignment: &excelize.Alignment{Horizontal: "center", Vertical: "center"},
-		Border: []excelize.Border{
-			{
-				Type:  "left",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "right",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "top",
-				Color: "000000",
-				Style: 1,
-			},
-			{
-				Type:  "bottom",
-				Color: "000000",
-				Style: 1,
-			},
-		},
-	})
 	revenueExcludingCOGS = netRevenue - reductionInRevenue - logisticsExpenses - otherExpenses
 	estimatedCOGS = (grossRevenue - revenueExcludingTaxes) / discountPt
 	grossProfitToal = revenueExcludingCOGS - estimatedCOGS
