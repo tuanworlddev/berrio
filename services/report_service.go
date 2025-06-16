@@ -72,12 +72,14 @@ func GetReportDetails(apiKey string, dateFrom, dateTo time.Time) ([]models.Repor
 
 func GenerateDetailedExcel(reports []models.ReportDetails) ([]byte, error) {
 	f := excelize.NewFile()
-	sheet := "Report"
-	f.NewSheet(sheet)
-	f.DeleteSheet("Sheet1")
+	sheet1 := "Sheet1"
+	sw, err := f.NewStreamWriter(sheet1)
+	if err != nil {
+		return nil, err
+	}
 
 	// Định nghĩa tiêu đề
-	headers := []string{
+	headers := []any{
 		"№",
 		"Номер поставки",
 		"Предмет",
@@ -151,18 +153,21 @@ func GenerateDetailedExcel(reports []models.ReportDetails) ([]byte, error) {
 		Font:      &excelize.Font{Bold: true},
 		Alignment: &excelize.Alignment{Vertical: "center", Horizontal: "center", WrapText: true},
 	})
-	f.SetRowHeight(sheet, 1, 40)
+	f.SetRowHeight(sheet1, 1, 30)
 
 	// Ghi tiêu đề
-	for i, h := range headers {
-		cell, _ := excelize.CoordinatesToCellName(i+1, 1)
-		f.SetCellValue(sheet, cell, h)
-		f.SetCellStyle(sheet, cell, cell, headerStyle)
+	// for i, h := range headers {
+	// 	cell, _ := excelize.CoordinatesToCellName(i+1, 1)
+	// 	f.SetCellValue(sheet, cell, h)
+	// 	f.SetCellStyle(sheet, cell, cell, headerStyle)
+	// }
+	if err := sw.SetRow("A1", headers, excelize.RowOpts{StyleID: headerStyle, Height: 24}); err != nil {
+		return nil, err
 	}
 
 	// Ghi dữ liệu
 	for i, r := range reports {
-		row := i + 2 // Dòng bắt đầu từ 2
+		row := i + 2
 		data := []any{
 			i + 1,                          // №
 			r.GiID,                         // Номер поставки
@@ -232,11 +237,14 @@ func GenerateDetailedExcel(reports []models.ReportDetails) ([]byte, error) {
 			0,                                         // Скидка по программе софинансирования
 			"",                                        // Скидка Wibes, %
 		}
-
-		for j, val := range data {
-			cell, _ := excelize.CoordinatesToCellName(j+1, row)
-			f.SetCellValue(sheet, cell, val)
+		if err := sw.SetRow(fmt.Sprintf("A%d", row), data); err != nil {
+			return nil, fmt.Errorf("failed to write row %d: %w", row, err)
 		}
+
+	}
+
+	if err := sw.Flush(); err != nil {
+		return nil, fmt.Errorf("failed to flush stream writer: %w", err)
 	}
 
 	var buf bytes.Buffer

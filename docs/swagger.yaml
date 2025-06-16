@@ -1,4 +1,4 @@
-basePath: /v1
+basePath: /api/v1
 definitions:
   controllers.ReportRequest:
     properties:
@@ -22,7 +22,7 @@ definitions:
 host: localhost:8080
 info:
   contact: {}
-  description: This is a sample server for Gin with Swagger.
+  description: Report Service.
   title: API Documentation
   version: "1.0"
 paths:

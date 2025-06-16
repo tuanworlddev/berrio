@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -16,10 +17,14 @@ import (
 // @version         1.0
 // @description     Report Service.
 // @host            localhost:8080
-// @BasePath        /v1
+// @BasePath        /api/v1
 func main() {
 	router := gin.Default()
 	router.Use(cors.Default())
+
+	router.GET("/", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{"message": "Welcome"})
+	})
 
 	v1 := router.Group("/api/v1")
 	{
