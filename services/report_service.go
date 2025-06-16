@@ -26,7 +26,7 @@ func GetReportDetails(apiKey string, dateFrom, dateTo time.Time) ([]models.Repor
 			to.Format(time.RFC3339),
 		)
 		client := &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout: 30 * time.Second,
 		}
 
 		req, err := http.NewRequest("GET", url, nil)
@@ -339,7 +339,7 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 	f.SetCellStyle(sheet, "A2", "C2", titleStyleDark)
 	row := 3
 	for _, r := range reports {
-		if r.DocTypeName == "Продажа" {
+		if r.SaName != "" && r.DocTypeName == "Продажа" {
 			grossRevenue += r.RetailPrice
 			netRevenue += r.PpvzForPay
 			f.SetCellValue(sheet, fmt.Sprintf("A%d", row), r.SaName)
