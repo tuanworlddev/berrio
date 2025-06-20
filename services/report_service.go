@@ -25,9 +25,7 @@ func GetReportDetails(apiKey string, dateFrom, dateTo time.Time) ([]models.Repor
 			from.Format(time.RFC3339),
 			to.Format(time.RFC3339),
 		)
-		client := &http.Client{
-			Timeout: 30 * time.Second,
-		}
+		client := &http.Client{}
 
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
@@ -64,8 +62,9 @@ func GetReportDetails(apiKey string, dateFrom, dateTo time.Time) ([]models.Repor
 		}
 		allReports = append(allReports, reports...)
 
-		fmt.Printf("Count: %d\n", len(reports))
+		fmt.Printf("Date from: %v, Date to: %v, Count: %d\n", from.Format("02-01-2006"), to.Format("02-01-2006"), len(reports))
 		from = to.AddDate(0, 0, 1)
+		time.Sleep(25 * time.Second)
 	}
 	return allReports, nil
 }
@@ -374,15 +373,6 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 	f.SetCellValue(sheet, "K2", "Артикул поставщика")
 	f.SetCellValue(sheet, "L2", "Chi phí logistic")
 	f.SetCellStyle(sheet, "K2", "L2", titleStyleDark)
-	row = 3
-	for _, r := range reports {
-		if r.SupplierOperName == "Логистика" {
-			logisticsExpenses += r.DeliveryRub
-			f.SetCellValue(sheet, fmt.Sprintf("K%d", row), r.SaName)
-			f.SetCellValue(sheet, fmt.Sprintf("L%d", row), r.DeliveryRub)
-			row++
-		}
-	}
 
 	f.SetCellValue(sheet, "O1", "BẢNG PHÍ ĐƠN HÀNG BỊ HỦY OR KHÔNG MUA")
 	f.MergeCell(sheet, "O1", "P1")
@@ -392,9 +382,14 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 	f.SetCellStyle(sheet, "O2", "P2", titleStyleDark)
 	row = 3
 	for _, r := range reports {
-		if r.SupplierOperName == "Логистика" && r.ReturnAmount == 1 {
-			f.SetCellValue(sheet, fmt.Sprintf("O%d", row), r.SaName)
-			f.SetCellValue(sheet, fmt.Sprintf("P%d", row), r.DeliveryRub)
+		if r.SupplierOperName == "Логистика" {
+			logisticsExpenses += r.DeliveryRub
+			f.SetCellValue(sheet, fmt.Sprintf("K%d", row), r.SaName)
+			f.SetCellValue(sheet, fmt.Sprintf("L%d", row), r.DeliveryRub)
+			if r.ReturnAmount == 1 {
+				f.SetCellValue(sheet, fmt.Sprintf("O%d", row), r.SaName)
+				f.SetCellValue(sheet, fmt.Sprintf("P%d", row), r.DeliveryRub)
+			}
 			row++
 		}
 	}
