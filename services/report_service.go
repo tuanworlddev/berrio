@@ -64,7 +64,6 @@ func GetReportDetails(apiKey string, dateFrom, dateTo time.Time) ([]models.Repor
 
 		fmt.Printf("Date from: %v, Date to: %v, Count: %d\n", from.Format("02-01-2006"), to.Format("02-01-2006"), len(reports))
 		from = to.AddDate(0, 0, 1)
-		time.Sleep(25 * time.Second)
 	}
 	return allReports, nil
 }
