@@ -372,6 +372,15 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 	f.SetCellValue(sheet, "K2", "Артикул поставщика")
 	f.SetCellValue(sheet, "L2", "Chi phí logistic")
 	f.SetCellStyle(sheet, "K2", "L2", titleStyleDark)
+	row = 3
+	for _, r := range reports {
+		if r.SupplierOperName == "Логистика" {
+			logisticsExpenses += r.DeliveryRub
+			f.SetCellValue(sheet, fmt.Sprintf("K%d", row), r.SaName)
+			f.SetCellValue(sheet, fmt.Sprintf("L%d", row), r.DeliveryRub)
+			row++
+		}
+	}
 
 	f.SetCellValue(sheet, "O1", "BẢNG PHÍ ĐƠN HÀNG BỊ HỦY OR KHÔNG MUA")
 	f.MergeCell(sheet, "O1", "P1")
@@ -381,14 +390,9 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 	f.SetCellStyle(sheet, "O2", "P2", titleStyleDark)
 	row = 3
 	for _, r := range reports {
-		if r.SupplierOperName == "Логистика" {
-			logisticsExpenses += r.DeliveryRub
-			f.SetCellValue(sheet, fmt.Sprintf("K%d", row), r.SaName)
-			f.SetCellValue(sheet, fmt.Sprintf("L%d", row), r.DeliveryRub)
-			if r.ReturnAmount == 1 {
-				f.SetCellValue(sheet, fmt.Sprintf("O%d", row), r.SaName)
-				f.SetCellValue(sheet, fmt.Sprintf("P%d", row), r.DeliveryRub)
-			}
+		if r.SupplierOperName == "Логистика" && r.ReturnAmount == 1 {
+			f.SetCellValue(sheet, fmt.Sprintf("O%d", row), r.SaName)
+			f.SetCellValue(sheet, fmt.Sprintf("P%d", row), r.DeliveryRub)
 			row++
 		}
 	}
