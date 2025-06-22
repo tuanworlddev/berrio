@@ -15,56 +15,78 @@ import (
 
 func GetReportDetails(apiKey string, dateFrom, dateTo time.Time) ([]models.ReportDetails, error) {
 	var allReports []models.ReportDetails
-	for from := dateFrom; from.Before(dateTo); {
-		to := from.AddDate(0, 0, 6)
-		if to.After(dateTo) {
-			to = dateTo
-		}
+	limit := 100000
+	rrdid := int64(0) // Bắt đầu với rrdid = 0
+
+	for {
+		// Tạo URL với dateFrom, dateTo, limit và rrdid
 		url := fmt.Sprintf(
-			"https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=%s&dateTo=%s",
-			from.Format(time.RFC3339),
-			to.Format(time.RFC3339),
+			"https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=%s&dateTo=%s&limit=%d&rrdid=%d",
+			dateFrom.Format(time.RFC3339),
+			dateTo.Format(time.RFC3339),
+			limit,
+			rrdid,
 		)
+
 		client := &http.Client{}
 
+		// Tạo request
 		req, err := http.NewRequest("GET", url, nil)
 		if err != nil {
-			fmt.Println("Error creating request:", err)
-			return nil, err
+			return nil, fmt.Errorf("failed to create request: %v", err)
 		}
 		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
 		req.Header.Set("Content-Type", "application/json")
 
+		// Gửi request
 		res, err := client.Do(req)
 		if err != nil {
-			fmt.Println("Error making request:", err)
-			return nil, err
+			return nil, fmt.Errorf("failed to make request: %v", err)
 		}
 		defer res.Body.Close()
 
-		if res.StatusCode != http.StatusOK {
-			fmt.Printf("Error: Status code %d\n", res.StatusCode)
-			body, _ := io.ReadAll(res.Body)
-			fmt.Println("Response:", string(body))
-			return nil, err
+		// Xử lý rate limit (429)
+		if res.StatusCode == 429 {
+			fmt.Println("Rate limit exceeded (429), waiting for 1 minute...")
+			time.Sleep(1 * time.Minute)
+			continue
 		}
 
+		// Kiểm tra status code
+		if res.StatusCode != http.StatusOK {
+			body, _ := io.ReadAll(res.Body)
+			return nil, fmt.Errorf("error response: status code %d, body: %s", res.StatusCode, string(body))
+		}
+
+		// Đọc và parse body
 		body, err := io.ReadAll(res.Body)
 		if err != nil {
-			fmt.Println("Error reading response:", err)
-			return nil, err
+			return nil, fmt.Errorf("failed to read response: %v", err)
 		}
 
 		var reports []models.ReportDetails
 		if err := json.Unmarshal(body, &reports); err != nil {
-			fmt.Println("Error decoding JSON:", err)
-			return nil, err
+			return nil, fmt.Errorf("failed to decode JSON: %v", err)
 		}
+
+		// Thoát nếu không còn dữ liệu
+		if len(reports) == 0 {
+			fmt.Println("No more data to fetch.")
+			break
+		}
+
 		allReports = append(allReports, reports...)
 
-		fmt.Printf("Date from: %v, Date to: %v, Count: %d\n", from.Format("02-01-2006"), to.Format("02-01-2006"), len(reports))
-		from = to.AddDate(0, 0, 1)
+		// Cập nhật rrdid từ bản ghi cuối cùng
+		rrdid = reports[len(reports)-1].RrdID
+		fmt.Printf("Fetched %d records, next rrdid: %d\n", len(reports), rrdid)
+
+		if len(reports) < limit {
+			fmt.Println("Reached end of data (less than limit).")
+			break
+		}
 	}
+
 	return allReports, nil
 }
 
