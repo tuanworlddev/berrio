@@ -463,7 +463,7 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 	f.SetCellValue(sheet, "AC2", "Giá vốn ước lượng")
 	f.SetCellValue(sheet, "AD2", "Doanh thu giảm trừ thuế")
 	f.SetCellValue(sheet, "AE2", "Lãi gộp")
-	f.SetCellValue(sheet, "AF2", fmt.Sprintf("Thuế(%.2f%%)", tax*100))
+	f.SetCellValue(sheet, "AF2", fmt.Sprintf("Thuế(%.2f%%)", taxPt*100))
 	f.SetCellValue(sheet, "AG2", "Lãi ròng")
 	f.SetCellStyle(sheet, "W2", "AG2", titleStyleDark)
 
