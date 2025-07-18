@@ -480,7 +480,7 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 	f.SetCellValue(sheet, "AD3", math.Round(revenueExcludingTaxes*100)/100)
 	f.SetCellValue(sheet, "AE3", math.Round(grossProfitToal*100)/100)
 	f.SetCellValue(sheet, "AF3", math.Round(tax*100)/100)
-	f.SetCellValue(sheet, "AH3", math.Round(taxFinal*100)/100)
+	f.SetCellValue(sheet, "AG3", math.Round(taxFinal*100)/100)
 	f.SetCellValue(sheet, "AH3", math.Round(netProfit*100)/100)
 
 	var buf bytes.Buffer
