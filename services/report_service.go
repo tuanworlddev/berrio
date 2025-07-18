@@ -22,8 +22,8 @@ func GetReportDetails(apiKey string, dateFrom, dateTo time.Time) ([]models.Repor
 		// Tạo URL với dateFrom, dateTo, limit và rrdid
 		url := fmt.Sprintf(
 			"https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=%s&dateTo=%s&limit=%d&rrdid=%d",
-			dateFrom.Format(time.RFC3339),
-			dateTo.Format(time.RFC3339),
+			dateFrom.Format("2006-01-02"),
+			dateTo.Format("2006-01-02"),
 			limit,
 			rrdid,
 		)
@@ -284,6 +284,7 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 	var revenueExcludingTaxes float64 // Doanh thu giảm trừ thuế
 	var grossProfitToal float64       // Lãi gộp
 	var tax float64                   // Thuế(%)
+	var taxFinal float64              // Thuế phải đóng
 	var netProfit float64             // Lãi ròng
 
 	f := excelize.NewFile()
@@ -450,10 +451,11 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 	estimatedCOGS = (grossRevenue - revenueExcludingTaxes) / discountPt
 	grossProfitToal = revenueExcludingCOGS - estimatedCOGS
 	tax = (grossRevenue - revenueExcludingTaxes) * taxPt
+	taxFinal = (netRevenue - reductionInRevenue) * taxPt
 	netProfit = grossProfitToal - tax
 	f.SetCellValue(sheet, "W1", "BẢNG TỔNG KẾT")
-	f.MergeCell(sheet, "W1", "AG1")
-	f.SetCellStyle(sheet, "W1", "AG1", headerStyleLight)
+	f.MergeCell(sheet, "W1", "AH1")
+	f.SetCellStyle(sheet, "W1", "AH1", headerStyleLight)
 	f.SetCellValue(sheet, "W2", "Doanh thu theo giá gốc sản phẩm")
 	f.SetCellValue(sheet, "X2", "Doanh thu sau khi trừ phí WB")
 	f.SetCellValue(sheet, "Y2", "Giảm trừ doanh thu(hàng trả lại)")
@@ -464,8 +466,9 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 	f.SetCellValue(sheet, "AD2", "Doanh thu giảm trừ thuế")
 	f.SetCellValue(sheet, "AE2", "Lãi trước thuế và chi phí khác")
 	f.SetCellValue(sheet, "AF2", fmt.Sprintf("Thuế(%.2f%%)", taxPt*100))
-	f.SetCellValue(sheet, "AG2", "Lợi nhuận thực nhận về sau khi trừ toàn bộ phí")
-	f.SetCellStyle(sheet, "W2", "AG2", titleStyleDark)
+	f.SetCellValue(sheet, "AG2", "Thuế phải đóng")
+	f.SetCellValue(sheet, "AH2", "Lợi nhuận thực nhận về sau khi trừ toàn bộ phí")
+	f.SetCellStyle(sheet, "W2", "AH2", titleStyleDark)
 
 	f.SetCellValue(sheet, "W3", math.Round(grossRevenue*100)/100)
 	f.SetCellValue(sheet, "X3", math.Round(netRevenue*100)/100)
@@ -477,7 +480,8 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 	f.SetCellValue(sheet, "AD3", math.Round(revenueExcludingTaxes*100)/100)
 	f.SetCellValue(sheet, "AE3", math.Round(grossProfitToal*100)/100)
 	f.SetCellValue(sheet, "AF3", math.Round(tax*100)/100)
-	f.SetCellValue(sheet, "AG3", math.Round(netProfit*100)/100)
+	f.SetCellValue(sheet, "AH3", math.Round(taxFinal*100)/100)
+	f.SetCellValue(sheet, "AH3", math.Round(netProfit*100)/100)
 
 	var buf bytes.Buffer
 	if err := f.Write(&buf); err != nil {

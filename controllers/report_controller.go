@@ -43,12 +43,12 @@ func HandleReportRequest(c *gin.Context) {
 		req.Discount = 3.5
 	}
 
-	dateFrom, err := time.Parse(time.RFC3339, req.DateFrom)
+	dateFrom, err := time.Parse("2006-01-02", req.DateFrom)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid dateFrom format. Use YYYY-MM-DD"})
 		return
 	}
-	dateTo, err := time.Parse(time.RFC3339, req.DateTo)
+	dateTo, err := time.Parse("2006-01-02", req.DateTo)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid dateTo format. Use YYYY-MM-DD"})
 		return
