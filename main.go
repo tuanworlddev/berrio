@@ -29,6 +29,7 @@ func main() {
 	v1 := router.Group("/api/v1")
 	{
 		v1.POST("/reports", controllers.HandleReportRequest)
+		v1.POST("/orders", controllers.GetOrdersReport)
 	}
 
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))

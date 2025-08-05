@@ -452,7 +452,7 @@ func GenerateReportExcel(reports []models.ReportDetails, taxPt, discountPt float
 	grossProfitToal = revenueExcludingCOGS - estimatedCOGS
 	tax = (grossRevenue - revenueExcludingTaxes) * taxPt
 	taxFinal = (netRevenue - reductionInRevenue) * taxPt
-	netProfit = grossProfitToal - tax
+	netProfit = grossProfitToal - taxFinal
 	f.SetCellValue(sheet, "W1", "BẢNG TỔNG KẾT")
 	f.MergeCell(sheet, "W1", "AH1")
 	f.SetCellStyle(sheet, "W1", "AH1", headerStyleLight)

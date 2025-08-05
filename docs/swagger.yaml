@@ -1,5 +1,18 @@
 basePath: /api/v1
 definitions:
+  controllers.AnalyticOrderRequest:
+    properties:
+      apiKey:
+        type: string
+      dateFrom:
+        type: string
+      dateTo:
+        type: string
+    required:
+    - apiKey
+    - dateFrom
+    - dateTo
+    type: object
   controllers.ReportRequest:
     properties:
       apiKey:
@@ -19,6 +32,21 @@ definitions:
     - discount
     - tax
     type: object
+  services.ChartData:
+    properties:
+      nmID:
+        type: integer
+      ordersCount:
+        type: integer
+      ordersSumRub:
+        type: integer
+      prevOrdersCount:
+        type: integer
+      prevOrdersSumRub:
+        type: integer
+      vendorCode:
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact: {}
@@ -26,6 +54,42 @@ info:
   title: API Documentation
   version: "1.0"
 paths:
+  /orders:
+    post:
+      consumes:
+      - application/json
+      description: Generates reports orders
+      parameters:
+      - description: Report request parameters
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/controllers.AnalyticOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/services.ChartData'
+            type: array
+        "400":
+          description: Invalid request parameters or date format
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Generates reports orders
+      tags:
+      - orders
   /reports:
     post:
       consumes:

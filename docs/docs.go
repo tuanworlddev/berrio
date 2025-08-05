@@ -15,6 +15,61 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/orders": {
+            "post": {
+                "description": "Generates reports orders",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "orders"
+                ],
+                "summary": "Generates reports orders",
+                "parameters": [
+                    {
+                        "description": "Report request parameters",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/controllers.AnalyticOrderRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/services.ChartData"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Invalid request parameters or date format",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal server error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/reports": {
             "post": {
                 "description": "Generates two Excel report files based on API key and date range, zips them, and returns the ZIP file for download",
@@ -69,6 +124,25 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "controllers.AnalyticOrderRequest": {
+            "type": "object",
+            "required": [
+                "apiKey",
+                "dateFrom",
+                "dateTo"
+            ],
+            "properties": {
+                "apiKey": {
+                    "type": "string"
+                },
+                "dateFrom": {
+                    "type": "string"
+                },
+                "dateTo": {
+                    "type": "string"
+                }
+            }
+        },
         "controllers.ReportRequest": {
             "type": "object",
             "required": [
@@ -93,6 +167,29 @@ const docTemplate = `{
                 },
                 "tax": {
                     "type": "number"
+                }
+            }
+        },
+        "services.ChartData": {
+            "type": "object",
+            "properties": {
+                "nmID": {
+                    "type": "integer"
+                },
+                "ordersCount": {
+                    "type": "integer"
+                },
+                "ordersSumRub": {
+                    "type": "integer"
+                },
+                "prevOrdersCount": {
+                    "type": "integer"
+                },
+                "prevOrdersSumRub": {
+                    "type": "integer"
+                },
+                "vendorCode": {
+                    "type": "string"
                 }
             }
         }
