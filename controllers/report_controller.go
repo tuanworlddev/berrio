@@ -60,15 +60,15 @@ func HandleReportRequest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot get reports"})
 		return
 	}
-	fmt.Println("Excel 1")
-	report1, err1 := services.GenerateDetailedExcel(reports)
+	// fmt.Println("Excel 1")
+	// report1, err1 := services.GenerateDetailedExcel(reports)
 	fmt.Println("Excel 2")
 	report2, err2 := services.GenerateReportExcel(reports, req.Tax, req.Discount)
 
-	if err1 != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate Excel files"})
-		return
-	}
+	// if err1 != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate Excel files"})
+	// 	return
+	// }
 
 	if err2 != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate Excel files"})
@@ -78,15 +78,15 @@ func HandleReportRequest(c *gin.Context) {
 	var zipBuffer bytes.Buffer
 	zipWriter := zip.NewWriter(&zipBuffer)
 
-	fw1, err := zipWriter.Create("report_vi.xlsx")
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create zip entry 1"})
-		return
-	}
-	if _, err := fw1.Write(report1); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write file 1 to zip"})
-		return
-	}
+	// fw1, err := zipWriter.Create("report_vi.xlsx")
+	// if err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create zip entry 1"})
+	// 	return
+	// }
+	// if _, err := fw1.Write(report1); err != nil {
+	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write file 1 to zip"})
+	// 	return
+	// }
 
 	fw2, err := zipWriter.Create("report_total.xlsx")
 	if err != nil {
