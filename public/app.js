@@ -17,6 +17,7 @@ const iconTrash = `
 
 const state = {
   shops: [],
+  tokenStatuses: new Map(),
   selectedShopId: "",
   page: 1,
   limit: 20,
@@ -41,12 +42,8 @@ const els = {
   shopCount: document.querySelector("#shopCount"),
   shopLoadedLabel: document.querySelector("#shopLoadedLabel"),
   shopLoading: document.querySelector("#shopLoading"),
-  refreshShopsButton: document.querySelector("#refreshShopsButton"),
   reportForm: document.querySelector("#reportForm"),
   reportShopSelect: document.querySelector("#reportShopSelect"),
-  selectedShopLabel: document.querySelector("#selectedShopLabel"),
-  selectedShopName: document.querySelector("#selectedShopName"),
-  selectedShopMeta: document.querySelector("#selectedShopMeta"),
   apiStatus: document.querySelector("#apiStatus"),
   dateFrom: document.querySelector("#dateFrom"),
   dateTo: document.querySelector("#dateTo"),
@@ -101,6 +98,34 @@ async function requestJSON(url, options = {}) {
 
 function getSelectedShop() {
   return state.shops.find((shop) => shop.id === state.selectedShopId) || null;
+}
+
+function getLocalTokenStatus(shop) {
+  if (!shop?.apiKey) {
+    return { valid: false, status: "missing", message: "Thiếu API key" };
+  }
+
+  const parts = shop.apiKey.split(".");
+  if (parts.length < 2) {
+    return { valid: false, status: "invalid", message: "Token sai định dạng" };
+  }
+
+  try {
+    let payloadSegment = parts[1].replaceAll("-", "+").replaceAll("_", "/");
+    payloadSegment += "=".repeat((4 - (payloadSegment.length % 4)) % 4);
+    const payload = JSON.parse(atob(payloadSegment));
+    if (payload.exp && payload.exp * 1000 < Date.now()) {
+      return { valid: false, status: "expired", message: "Token đã hết hạn" };
+    }
+  } catch {
+    return { valid: false, status: "invalid", message: "Token sai định dạng" };
+  }
+
+  return { valid: true, status: "unchecked", message: "Chưa kiểm tra WB" };
+}
+
+function getTokenStatus(shop) {
+  return state.tokenStatuses.get(shop.id) || getLocalTokenStatus(shop);
 }
 
 function hasMoreShops() {
@@ -165,12 +190,16 @@ function renderShops() {
 
   for (const shop of state.shops) {
     const item = document.createElement("div");
-    item.className = `shop-item${shop.id === state.selectedShopId ? " is-selected" : ""}`;
+    const tokenStatus = getTokenStatus(shop);
+    item.className = `shop-item${shop.id === state.selectedShopId ? " is-selected" : ""}${tokenStatus.valid ? "" : " is-token-invalid"}`;
 
     const info = document.createElement("button");
     info.className = "shop-select-button";
     info.type = "button";
-    info.innerHTML = `<div class="shop-name">${escapeHTML(shop.name)}</div><div class="shop-meta">${escapeHTML(shop.marketplace || "Chưa có sàn")}</div>`;
+    info.innerHTML = `
+      <div class="shop-name">${escapeHTML(shop.name)}</div>
+      <div class="shop-meta">${escapeHTML(tokenStatus.message || (shop.marketplace || "Chưa có sàn"))}</div>
+    `;
     info.addEventListener("click", () => selectShop(shop.id));
 
     const actions = document.createElement("div");
@@ -222,20 +251,22 @@ function renderShopSelect() {
 
 function renderSelectedShop() {
   const shop = getSelectedShop();
-  const shopName = shop ? shop.name : "Chưa chọn shop";
-  els.selectedShopLabel.textContent = shopName;
-  els.selectedShopName.textContent = shopName;
-  els.selectedShopMeta.textContent = shop
-    ? `${shop.marketplace || "Chưa có sàn"}${shop.isActive === false ? " - đang tắt" : " - đang hoạt động"}`
-    : "Chọn một shop ở bên trái để bắt đầu.";
+  if (!shop) {
+    els.apiStatus.textContent = "Chưa chọn shop";
+    els.apiStatus.className = "api-status";
+    return;
+  }
 
-  els.apiStatus.textContent = shop?.apiKey ? "API key sẵn sàng" : "Chưa có API key";
-  els.apiStatus.classList.toggle("is-ready", Boolean(shop?.apiKey));
+  const tokenStatus = getTokenStatus(shop);
+  const isReady = tokenStatus.valid && tokenStatus.status === "ok";
+  els.apiStatus.textContent = isReady ? "Token hoạt động" : tokenStatus.message;
+  els.apiStatus.className = `api-status${isReady ? " is-ready" : ""}${tokenStatus.valid ? "" : " is-invalid"}`;
 }
 
 function selectShop(id) {
   state.selectedShopId = id;
   renderShops();
+  checkSelectedShopToken().catch((error) => showToast(error.message));
 }
 
 function clearShopForm() {
@@ -293,6 +324,7 @@ async function saveShop(event) {
 
   renderShops();
   showToast(id ? "Đã cập nhật shop" : "Đã thêm shop");
+  checkSelectedShopToken().catch((error) => showToast(error.message));
 }
 
 async function deleteShop(shop) {
@@ -311,11 +343,36 @@ async function deleteShop(shop) {
   showToast("Đã xóa shop");
 }
 
+async function checkSelectedShopToken() {
+  const shop = getSelectedShop();
+  if (!shop) {
+    return;
+  }
+
+  const localStatus = getLocalTokenStatus(shop);
+  state.tokenStatuses.set(shop.id, localStatus);
+  renderShops();
+
+  if (!localStatus.valid) {
+    return;
+  }
+
+  els.apiStatus.textContent = "Đang kiểm tra token";
+  const status = await requestJSON(`/api/v1/shops/${shop.id}/token-status`);
+  state.tokenStatuses.set(shop.id, {
+    valid: status.valid,
+    status: status.status,
+    message: status.valid ? "Token hoạt động" : (status.message || "Token không hoạt động"),
+  });
+  renderShops();
+}
+
 async function downloadReport(event) {
   event.preventDefault();
   const shop = getSelectedShop();
-  if (!shop || !shop.apiKey) {
-    showToast("Hãy chọn shop có API key");
+  const tokenStatus = shop ? getTokenStatus(shop) : null;
+  if (!shop || !shop.apiKey || tokenStatus?.valid === false) {
+    showToast(tokenStatus?.message || "Hãy chọn shop có API key hợp lệ");
     return;
   }
 
@@ -360,8 +417,9 @@ async function downloadReport(event) {
 
 async function loadOrders() {
   const shop = getSelectedShop();
-  if (!shop || !shop.apiKey) {
-    showToast("Hãy chọn shop có API key");
+  const tokenStatus = shop ? getTokenStatus(shop) : null;
+  if (!shop || !shop.apiKey || tokenStatus?.valid === false) {
+    showToast(tokenStatus?.message || "Hãy chọn shop có API key hợp lệ");
     return;
   }
 
@@ -422,7 +480,6 @@ els.addShopButton.addEventListener("click", openAddShopModal);
 els.shopForm.addEventListener("submit", (event) => {
   saveShop(event).catch((error) => showToast(error.message));
 });
-els.refreshShopsButton.addEventListener("click", () => loadShops({ reset: true }).catch((error) => showToast(error.message)));
 els.shopList.addEventListener("scroll", () => {
   const nearBottom = els.shopList.scrollTop + els.shopList.clientHeight >= els.shopList.scrollHeight - 80;
   if (nearBottom) {
@@ -435,4 +492,6 @@ els.loadOrdersButton.addEventListener("click", loadOrders);
 
 els.dateFrom.value = daysAgoISO(7);
 els.dateTo.value = todayISO();
-loadShops({ reset: true }).catch((error) => showToast(error.message));
+loadShops({ reset: true })
+  .then(() => checkSelectedShopToken())
+  .catch((error) => showToast(error.message));

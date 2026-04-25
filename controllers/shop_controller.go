@@ -141,6 +141,28 @@ func DeleteShop(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
+// @Summary      Check shop token
+// @Description  Checks whether the shop API key can reach WB API ping
+// @Tags         shops
+// @Produce      json
+// @Param        id   path      string  true  "Shop ID"
+// @Success      200  {object}  models.ShopTokenStatus
+// @Failure      400  {object}  map[string]string
+// @Failure      404  {object}  map[string]string
+// @Router       /shops/{id}/token-status [get]
+func CheckShopToken(c *gin.Context) {
+	ctx, cancel := requestContext(c)
+	defer cancel()
+
+	status, err := services.CheckShopToken(ctx, c.Param("id"))
+	if err != nil {
+		writeShopError(c, err)
+		return
+	}
+
+	c.JSON(http.StatusOK, status)
+}
+
 func requestContext(c *gin.Context) (context.Context, context.CancelFunc) {
 	return context.WithTimeout(c.Request.Context(), requestTimeout)
 }

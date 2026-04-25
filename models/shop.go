@@ -36,3 +36,12 @@ type UpdateShopRequest struct {
 	IsActive    *bool   `json:"isActive,omitempty"`
 	Metadata    bson.M  `json:"metadata,omitempty"`
 }
+
+type ShopTokenStatus struct {
+	ShopID      string `json:"shopId"`
+	Valid       bool   `json:"valid"`
+	Status      string `json:"status"`
+	Message     string `json:"message,omitempty"`
+	CheckedAt   string `json:"checkedAt"`
+	WBTimestamp string `json:"wbTimestamp,omitempty"`
+}

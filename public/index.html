@@ -27,7 +27,6 @@
           <button class="btn btn-primary btn-lg" id="addShopButton" type="button">
             <span class="fw-bold me-1">+</span> Add Shop
           </button>
-          <button class="btn btn-outline-primary" id="refreshShopsButton" type="button">Tải lại danh sách</button>
         </div>
 
         <div class="shop-list-title">
@@ -40,60 +39,43 @@
       </aside>
 
       <section class="content">
-        <header class="page-header">
-          <div>
-            <p class="section-kicker">Báo cáo Wildberries</p>
-            <h2 class="display-title">Tải báo cáo theo shop</h2>
-            <p class="text-secondary mb-0">Chọn shop, kiểm tra API key, sau đó tải báo cáo hoặc xem nhanh đơn hàng.</p>
-          </div>
-          <div class="selected-shop" id="selectedShopLabel">Chưa chọn shop</div>
-        </header>
-
         <section class="card hero-card border-0 shadow-sm">
           <div class="card-body p-4 p-xl-5">
-            <div class="row g-4 align-items-start">
-              <div class="col-12 col-xl-4">
-                <p class="section-kicker">Shop đang chọn</p>
-                <h3 class="h2 fw-bold mb-2" id="selectedShopName">Chưa chọn shop</h3>
-                <p class="text-secondary mb-3" id="selectedShopMeta">Chọn một shop ở bên trái để bắt đầu.</p>
-                <div class="api-status" id="apiStatus">Chưa có API key</div>
+            <form id="reportForm">
+              <div class="d-flex flex-column flex-xl-row align-items-xl-end justify-content-between gap-3 mb-4">
+                <div class="flex-grow-1">
+                  <label class="form-label fw-semibold" for="reportShopSelect">Shop</label>
+                  <select class="form-select form-select-lg" id="reportShopSelect" required></select>
+                </div>
+                <div class="api-status" id="apiStatus">Chưa kiểm tra token</div>
               </div>
 
-              <div class="col-12 col-xl-8">
-                <form id="reportForm">
-                  <div class="mb-3">
-                    <label class="form-label fw-semibold" for="reportShopSelect">Shop</label>
-                    <select class="form-select form-select-lg" id="reportShopSelect" required></select>
-                  </div>
-
-                  <div class="row g-3">
-                    <div class="col-12 col-md-6 col-xxl-3">
-                      <label class="form-label fw-semibold" for="dateFrom">Từ ngày</label>
-                      <input class="form-control form-control-lg" id="dateFrom" type="date" required />
-                    </div>
-                    <div class="col-12 col-md-6 col-xxl-3">
-                      <label class="form-label fw-semibold" for="dateTo">Đến ngày</label>
-                      <input class="form-control form-control-lg" id="dateTo" type="date" required />
-                    </div>
-                    <div class="col-12 col-md-6 col-xxl-3">
-                      <label class="form-label fw-semibold" for="tax">Thuế</label>
-                      <input class="form-control form-control-lg" id="tax" type="number" min="0" step="0.01" value="0.06" />
-                    </div>
-                    <div class="col-12 col-md-6 col-xxl-3">
-                      <label class="form-label fw-semibold" for="discount">Hệ số giá vốn</label>
-                      <input class="form-control form-control-lg" id="discount" type="number" min="0" step="0.1" value="3.5" />
-                    </div>
-                  </div>
-
-                  <div class="d-grid d-md-flex gap-2 mt-4">
-                    <button class="btn btn-primary btn-lg flex-fill" id="downloadReportButton" type="submit">
-                      Tải báo cáo ZIP
-                    </button>
-                    <button class="btn btn-outline-primary btn-lg" id="loadOrdersButton" type="button">Xem đơn hàng</button>
-                  </div>
-                </form>
+              <div class="row g-3">
+                <div class="col-12 col-md-6 col-xxl-3">
+                  <label class="form-label fw-semibold" for="dateFrom">Từ ngày</label>
+                  <input class="form-control form-control-lg" id="dateFrom" type="date" required />
+                </div>
+                <div class="col-12 col-md-6 col-xxl-3">
+                  <label class="form-label fw-semibold" for="dateTo">Đến ngày</label>
+                  <input class="form-control form-control-lg" id="dateTo" type="date" required />
+                </div>
+                <div class="col-12 col-md-6 col-xxl-3">
+                  <label class="form-label fw-semibold" for="tax">Thuế</label>
+                  <input class="form-control form-control-lg" id="tax" type="number" min="0" step="0.01" value="0.06" />
+                </div>
+                <div class="col-12 col-md-6 col-xxl-3">
+                  <label class="form-label fw-semibold" for="discount">Hệ số giá vốn</label>
+                  <input class="form-control form-control-lg" id="discount" type="number" min="0" step="0.1" value="3.5" />
+                </div>
               </div>
-            </div>
+
+              <div class="d-grid d-md-flex gap-2 mt-4">
+                <button class="btn btn-primary btn-lg flex-fill" id="downloadReportButton" type="submit">
+                  Tải báo cáo ZIP
+                </button>
+                <button class="btn btn-outline-primary btn-lg" id="loadOrdersButton" type="button">Xem đơn hàng</button>
+              </div>
+            </form>
           </div>
         </section>
 

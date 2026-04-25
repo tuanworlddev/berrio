@@ -2,9 +2,12 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"math"
+	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -20,7 +23,16 @@ const (
 	defaultPage           = int64(1)
 	defaultLimit          = int64(10)
 	maxLimit              = int64(100)
+	wbPingURL             = "https://common-api.wildberries.ru/ping"
+	tokenStatusCacheTTL   = 5 * time.Minute
 )
+
+var tokenStatusCache sync.Map
+
+type cachedTokenStatus struct {
+	status    models.ShopTokenStatus
+	expiresAt time.Time
+}
 
 func shopCollection() *mongo.Collection {
 	name := os.Getenv("MONGO_SHOP_COLLECTION")
@@ -152,6 +164,80 @@ func DeleteShop(ctx context.Context, id string) error {
 	}
 
 	return nil
+}
+
+func CheckShopToken(ctx context.Context, id string) (models.ShopTokenStatus, error) {
+	shop, err := GetShopByID(ctx, id)
+	if err != nil {
+		return models.ShopTokenStatus{}, err
+	}
+
+	cacheKey := shop.ID.Hex() + ":" + shop.UpdatedAt.Format(time.RFC3339Nano)
+	if cached, ok := tokenStatusCache.Load(cacheKey); ok {
+		item := cached.(cachedTokenStatus)
+		if time.Now().Before(item.expiresAt) {
+			return item.status, nil
+		}
+		tokenStatusCache.Delete(cacheKey)
+	}
+
+	status := models.ShopTokenStatus{
+		ShopID:    shop.ID.Hex(),
+		CheckedAt: time.Now().UTC().Format(time.RFC3339),
+	}
+
+	if shop.APIKey == "" {
+		status.Status = "missing"
+		status.Message = "Shop chưa có API key"
+		return status, nil
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, wbPingURL, nil)
+	if err != nil {
+		return models.ShopTokenStatus{}, err
+	}
+	req.Header.Set("Authorization", "Bearer "+shop.APIKey)
+
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		status.Status = "error"
+		status.Message = "Không kết nối được WB API"
+		return status, nil
+	}
+	defer resp.Body.Close()
+
+	var body struct {
+		TS     string `json:"TS"`
+		Status string `json:"Status"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&body)
+
+	status.WBTimestamp = body.TS
+	switch resp.StatusCode {
+	case http.StatusOK:
+		status.Valid = body.Status == "OK"
+		status.Status = "ok"
+		if !status.Valid {
+			status.Status = "invalid"
+			status.Message = "WB API không trả trạng thái OK"
+		}
+	case http.StatusUnauthorized:
+		status.Status = "invalid"
+		status.Message = "Token không hợp lệ, hết hạn hoặc sai category"
+	case http.StatusTooManyRequests:
+		status.Status = "rate_limited"
+		status.Message = "WB đang giới hạn kiểm tra token, thử lại sau"
+	default:
+		status.Status = "error"
+		status.Message = "WB API trả lỗi khi kiểm tra token"
+	}
+
+	tokenStatusCache.Store(cacheKey, cachedTokenStatus{
+		status:    status,
+		expiresAt: time.Now().Add(tokenStatusCacheTTL),
+	})
+	return status, nil
 }
 
 func IsNotFound(err error) bool {

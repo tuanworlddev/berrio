@@ -130,6 +130,16 @@ body {
   background: var(--primary-soft);
 }
 
+.shop-item.is-token-invalid {
+  border-color: rgba(220, 38, 38, 0.55);
+  background: #fff1f2;
+}
+
+.shop-item.is-token-invalid .shop-name,
+.shop-item.is-token-invalid .shop-meta {
+  color: #b91c1c;
+}
+
 .shop-select-button {
   min-width: 0;
   border: 0;
@@ -246,6 +256,11 @@ body {
 .api-status.is-ready {
   background: var(--primary-soft);
   color: var(--primary-dark);
+}
+
+.api-status.is-invalid {
+  background: #fee2e2;
+  color: #b91c1c;
 }
 
 .metric {

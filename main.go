@@ -60,6 +60,7 @@ func main() {
 		v1.GET("/shops/:id", controllers.GetShopByID)
 		v1.PATCH("/shops/:id", controllers.UpdateShop)
 		v1.DELETE("/shops/:id", controllers.DeleteShop)
+		v1.GET("/shops/:id/token-status", controllers.CheckShopToken)
 	}
 
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
