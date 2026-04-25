@@ -2,20 +2,27 @@ package services
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"math"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/xuri/excelize/v2"
 	"omnituan.online/models"
 )
 
-func GetReportDetails(apiKey string, dateFrom, dateTo time.Time) ([]models.ReportDetails, error) {
+var ErrReportRateLimited = errors.New("wildberries report API rate limited")
+
+func GetReportDetails(ctx context.Context, apiKey string, dateFrom, dateTo time.Time) ([]models.ReportDetails, error) {
 	var allReports []models.ReportDetails
 	limit := 100000
+	rateLimitRetries := 0
+	client := &http.Client{Timeout: 60 * time.Second}
 	rrdid := int64(0) // Bắt đầu với rrdid = 0
 
 	for {
@@ -28,10 +35,8 @@ func GetReportDetails(apiKey string, dateFrom, dateTo time.Time) ([]models.Repor
 			rrdid,
 		)
 
-		client := &http.Client{}
-
 		// Tạo request
-		req, err := http.NewRequest("GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %v", err)
 		}
@@ -43,23 +48,37 @@ func GetReportDetails(apiKey string, dateFrom, dateTo time.Time) ([]models.Repor
 		if err != nil {
 			return nil, fmt.Errorf("failed to make request: %v", err)
 		}
-		defer res.Body.Close()
 
 		// Xử lý rate limit (429)
 		if res.StatusCode == 429 {
-			fmt.Println("Rate limit exceeded (429), waiting for 1 minute...")
-			time.Sleep(1 * time.Minute)
+			wait := retryAfter(res.Header.Get("Retry-After"), 65*time.Second)
+			_ = res.Body.Close()
+			rateLimitRetries++
+			if rateLimitRetries > 3 {
+				return nil, fmt.Errorf("%w: retry later", ErrReportRateLimited)
+			}
+			fmt.Printf("Report API rate limited (429), retry %d/3 after %s\n", rateLimitRetries, wait)
+			timer := time.NewTimer(wait)
+			select {
+			case <-ctx.Done():
+				timer.Stop()
+				return nil, ctx.Err()
+			case <-timer.C:
+			}
 			continue
 		}
+		rateLimitRetries = 0
 
 		// Kiểm tra status code
 		if res.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(res.Body)
+			_ = res.Body.Close()
 			return nil, fmt.Errorf("error response: status code %d, body: %s", res.StatusCode, string(body))
 		}
 
 		// Đọc và parse body
 		body, err := io.ReadAll(res.Body)
+		_ = res.Body.Close()
 		if err != nil {
 			return nil, fmt.Errorf("failed to read response: %v", err)
 		}
@@ -88,6 +107,18 @@ func GetReportDetails(apiKey string, dateFrom, dateTo time.Time) ([]models.Repor
 	}
 
 	return allReports, nil
+}
+
+func retryAfter(value string, fallback time.Duration) time.Duration {
+	if seconds, err := strconv.Atoi(value); err == nil && seconds > 0 {
+		return time.Duration(seconds) * time.Second
+	}
+	if t, err := http.ParseTime(value); err == nil {
+		if wait := time.Until(t); wait > 0 {
+			return wait
+		}
+	}
+	return fallback
 }
 
 func GenerateDetailedExcel(reports []models.ReportDetails) ([]byte, error) {
