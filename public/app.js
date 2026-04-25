@@ -18,8 +18,10 @@ const iconTrash = `
 const state = {
   shops: [],
   tokenStatuses: new Map(),
+  reportJobs: [],
   selectedShopId: "",
   tokenModalShopId: "",
+  activeReportJobId: "",
   page: 1,
   limit: 20,
   total: 0,
@@ -27,7 +29,17 @@ const state = {
   isLoadingShops: false,
 };
 
+const JOB_POLL_INTERVAL_MS = 30000;
+
 const els = {
+  sidebar: document.querySelector("#sidebar"),
+  mobileBackdrop: document.querySelector("#mobileBackdrop"),
+  menuButton: document.querySelector("#menuButton"),
+  jobsButton: document.querySelector("#jobsButton"),
+  jobsDot: document.querySelector("#jobsDot"),
+  jobsDrawer: document.querySelector("#jobsDrawer"),
+  jobsList: document.querySelector("#jobsList"),
+  closeJobsButton: document.querySelector("#closeJobsButton"),
   addShopButton: document.querySelector("#addShopButton"),
   shopForm: document.querySelector("#shopForm"),
   shopModal: document.querySelector("#shopModal"),
@@ -83,6 +95,19 @@ function showToast(message) {
   showToast.timer = window.setTimeout(() => {
     els.toast.classList.remove("is-visible");
   }, 2800);
+}
+
+function setSidebarOpen(isOpen) {
+  els.sidebar.classList.toggle("is-open", isOpen);
+  els.mobileBackdrop.classList.toggle("is-visible", isOpen);
+}
+
+function setJobsDrawerOpen(isOpen, { refresh = true } = {}) {
+  els.jobsDrawer.classList.toggle("is-open", isOpen);
+  els.mobileBackdrop.classList.toggle("is-visible", isOpen || els.sidebar.classList.contains("is-open"));
+  if (isOpen && refresh) {
+    refreshRunningReportJobs().catch((error) => showToast(error.message));
+  }
 }
 
 async function requestJSON(url, options = {}) {
@@ -198,16 +223,20 @@ function renderShops() {
   for (const shop of state.shops) {
     const item = document.createElement("div");
     const tokenStatus = getTokenStatus(shop);
+    const hasRunningJob = state.reportJobs.some((job) => job.shopId === shop.id && isJobActive(job));
     item.className = `shop-item${shop.id === state.selectedShopId ? " is-selected" : ""}${tokenStatus.valid ? "" : " is-token-invalid"}`;
 
     const info = document.createElement("button");
     info.className = "shop-select-button";
     info.type = "button";
     info.innerHTML = `
-      <div class="shop-name">${escapeHTML(shop.name)}</div>
+      <div class="shop-name">${escapeHTML(shop.name)}${hasRunningJob ? '<span class="shop-job-spinner" title="Đang có job báo cáo"></span>' : ""}</div>
       <div class="shop-meta">${escapeHTML(shop.marketplace || "Chưa có sàn")}</div>
     `;
-    info.addEventListener("click", () => selectShop(shop.id));
+    info.addEventListener("click", () => {
+      selectShop(shop.id);
+      setSidebarOpen(false);
+    });
 
     const actions = document.createElement("div");
     actions.className = "shop-actions";
@@ -291,6 +320,77 @@ function canUseSelectedShop() {
   }
 
   return true;
+}
+
+function isJobActive(job) {
+  return job.status === "queued" || job.status === "running";
+}
+
+function upsertReportJob(job) {
+  const index = state.reportJobs.findIndex((item) => item.id === job.id);
+  if (index >= 0) {
+    state.reportJobs[index] = { ...state.reportJobs[index], ...job };
+  } else {
+    state.reportJobs.unshift(job);
+  }
+  renderReportJobs();
+  renderShops();
+}
+
+function renderReportJobs() {
+  const activeCount = state.reportJobs.filter(isJobActive).length;
+  els.jobsDot.hidden = activeCount === 0;
+  els.jobsButton.classList.toggle("has-active-jobs", activeCount > 0);
+  els.jobsList.innerHTML = "";
+
+  if (state.reportJobs.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "job-empty";
+    empty.textContent = "Chưa có job báo cáo";
+    els.jobsList.appendChild(empty);
+    return;
+  }
+
+  for (const job of state.reportJobs) {
+    const item = document.createElement("div");
+    item.className = `job-item is-${job.status}`;
+    item.innerHTML = `
+      <div class="job-title">
+        <span>${escapeHTML(job.shopName || "Shop")}</span>
+        ${isJobActive(job) ? '<span class="job-spinner"></span>' : ""}
+      </div>
+      <div class="job-meta">${escapeHTML(job.dateFrom || "")} - ${escapeHTML(job.dateTo || "")}</div>
+      <div class="job-step">${escapeHTML(job.error || job.currentStep || "Đang chờ xử lý")}</div>
+      <div class="job-progress">
+        <span style="width: ${Math.max(0, Math.min(Number(job.progress || 0), 100))}%"></span>
+      </div>
+    `;
+
+    if (job.status === "done" && job.downloadUrl) {
+      const button = document.createElement("button");
+      button.className = "btn btn-sm btn-outline-primary mt-2";
+      button.type = "button";
+      button.textContent = "Tải file";
+      button.addEventListener("click", () => {
+        downloadReportJob(job.downloadUrl, job).catch((error) => showToast(error.message));
+      });
+      item.appendChild(button);
+    }
+
+    els.jobsList.appendChild(item);
+  }
+}
+
+async function refreshRunningReportJobs() {
+  const runningJobs = state.reportJobs.filter(isJobActive);
+  for (const job of runningJobs) {
+    try {
+      const latest = await requestJSON(`/api/v1/reports/jobs/${job.id}`);
+      upsertReportJob({ ...job, ...latest });
+    } catch (error) {
+      upsertReportJob({ ...job, status: "failed", error: "Không thể cập nhật trạng thái job" });
+    }
+  }
 }
 
 function shopPayload() {
@@ -384,6 +484,12 @@ async function downloadReport(event) {
   updateReportProgress({ progress: 0, currentStep: "Đang tạo job báo cáo" });
 
   try {
+    const jobMeta = {
+      shopId: shop.id,
+      shopName: shop.name,
+      dateFrom: els.dateFrom.value,
+      dateTo: els.dateTo.value,
+    };
     const job = await requestJSON("/api/v1/reports/jobs", {
       method: "POST",
       body: JSON.stringify({
@@ -395,7 +501,11 @@ async function downloadReport(event) {
         discount: Number(els.discount.value || 3.5),
       }),
     });
-    await waitForReportJob(job.id);
+    const reportJob = { ...jobMeta, ...job };
+    state.activeReportJobId = job.id;
+    upsertReportJob(reportJob);
+    setJobsDrawerOpen(true, { refresh: false });
+    await waitForReportJob(reportJob);
     showToast("Đã tải báo cáo");
   } catch (error) {
     showToast(error.message);
@@ -415,13 +525,16 @@ function updateReportProgress(job) {
   els.downloadReportButton.textContent = progress > 0 ? `Đang xử lý ${progress}%` : "Đang xử lý";
 }
 
-async function waitForReportJob(jobID) {
-  let job = await requestJSON(`/api/v1/reports/jobs/${jobID}`);
+async function waitForReportJob(reportJob) {
+  let job = await requestJSON(`/api/v1/reports/jobs/${reportJob.id}`);
+  job = { ...reportJob, ...job };
+  upsertReportJob(job);
   updateReportProgress(job);
 
   while (job.status === "queued" || job.status === "running") {
-    await sleep(3000);
-    job = await requestJSON(`/api/v1/reports/jobs/${jobID}`);
+    await sleep(JOB_POLL_INTERVAL_MS);
+    job = { ...job, ...(await requestJSON(`/api/v1/reports/jobs/${job.id}`)) };
+    upsertReportJob(job);
     updateReportProgress(job);
   }
 
@@ -432,10 +545,10 @@ async function waitForReportJob(jobID) {
     throw new Error("Báo cáo chưa sẵn sàng");
   }
 
-  await downloadReportJob(job.downloadUrl);
+  await downloadReportJob(job.downloadUrl, job);
 }
 
-async function downloadReportJob(downloadUrl) {
+async function downloadReportJob(downloadUrl, job = {}) {
   const response = await fetch(downloadUrl);
   if (!response.ok) {
     const body = await response.json().catch(() => ({}));
@@ -446,7 +559,7 @@ async function downloadReportJob(downloadUrl) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `${sanitizeFileName(getSelectedShop()?.name || "shop")}_report_${els.dateFrom.value}_${els.dateTo.value}.xlsx`;
+  link.download = `${sanitizeFileName(job.shopName || getSelectedShop()?.name || "shop")}_report_${job.dateFrom || els.dateFrom.value}_${job.dateTo || els.dateTo.value}.xlsx`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -525,6 +638,13 @@ function escapeHTML(value) {
 }
 
 els.addShopButton.addEventListener("click", openAddShopModal);
+els.menuButton.addEventListener("click", () => setSidebarOpen(true));
+els.jobsButton.addEventListener("click", () => setJobsDrawerOpen(true));
+els.closeJobsButton.addEventListener("click", () => setJobsDrawerOpen(false));
+els.mobileBackdrop.addEventListener("click", () => {
+  setSidebarOpen(false);
+  setJobsDrawerOpen(false);
+});
 els.shopForm.addEventListener("submit", (event) => {
   saveShop(event).catch((error) => showToast(error.message));
 });
@@ -549,3 +669,4 @@ els.dateTo.value = todayISO();
 loadShops({ reset: true })
   .then(() => checkSelectedShopToken({ notifyTokenIssue: false }))
   .catch((error) => showToast(error.message));
+renderReportJobs();

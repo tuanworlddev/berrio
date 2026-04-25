@@ -14,7 +14,8 @@
   </head>
   <body>
     <main class="app-shell">
-      <aside class="sidebar">
+      <div class="mobile-backdrop" id="mobileBackdrop"></div>
+      <aside class="sidebar" id="sidebar">
         <div class="sidebar-header">
           <div class="brand-mark">B</div>
           <div class="min-w-0">
@@ -39,35 +40,48 @@
       </aside>
 
       <section class="content">
+        <div class="mobile-toolbar">
+          <button class="icon-button" id="menuButton" type="button" aria-label="Mở danh sách shop">
+            <span></span>
+            <span></span>
+            <span></span>
+          </button>
+          <strong>Berrio</strong>
+          <button class="jobs-button" id="jobsButton" type="button" aria-label="Xem job báo cáo">
+            <span class="jobs-dot" id="jobsDot" hidden></span>
+            Jobs
+          </button>
+        </div>
+
         <section class="card hero-card border-0 shadow-sm">
-          <div class="card-body p-4 p-xl-5">
+          <div class="card-body p-3 p-xl-4">
             <form id="reportForm">
-              <div class="row g-3">
+              <div class="row g-2">
                 <div class="col-12 col-md-6 col-xxl-3">
                   <label class="form-label fw-semibold" for="dateFrom">Từ ngày</label>
-                  <input class="form-control form-control-lg" id="dateFrom" type="date" required />
+                  <input class="form-control" id="dateFrom" type="date" required />
                 </div>
                 <div class="col-12 col-md-6 col-xxl-3">
                   <label class="form-label fw-semibold" for="dateTo">Đến ngày</label>
-                  <input class="form-control form-control-lg" id="dateTo" type="date" required />
+                  <input class="form-control" id="dateTo" type="date" required />
                 </div>
                 <div class="col-12 col-md-6 col-xxl-3">
                   <label class="form-label fw-semibold" for="tax">Thuế</label>
-                  <input class="form-control form-control-lg" id="tax" type="number" min="0" step="0.01" value="0.06" />
+                  <input class="form-control" id="tax" type="number" min="0" step="0.01" value="0.06" />
                 </div>
                 <div class="col-12 col-md-6 col-xxl-3">
                   <label class="form-label fw-semibold" for="discount">Hệ số giá vốn</label>
-                  <input class="form-control form-control-lg" id="discount" type="number" min="0" step="0.1" value="3.5" />
+                  <input class="form-control" id="discount" type="number" min="0" step="0.1" value="3.5" />
                 </div>
               </div>
 
-              <div class="d-grid d-md-flex gap-2 mt-4">
-                <button class="btn btn-primary btn-lg flex-fill" id="downloadReportButton" type="submit">
+              <div class="d-grid d-md-flex gap-2 mt-3">
+                <button class="btn btn-primary flex-fill" id="downloadReportButton" type="submit">
                   Tải báo cáo Excel
                 </button>
-                <button class="btn btn-outline-primary btn-lg" id="loadOrdersButton" type="button">Xem đơn hàng</button>
+                <button class="btn btn-outline-primary" id="loadOrdersButton" type="button">Xem đơn hàng</button>
               </div>
-              <div class="report-progress mt-3" id="reportProgress" hidden>
+              <div class="report-progress mt-2" id="reportProgress" hidden>
                 <div class="d-flex justify-content-between gap-3 mb-2">
                   <span id="reportProgressText">Đang chuẩn bị báo cáo</span>
                   <strong id="reportProgressPercent">0%</strong>
@@ -80,7 +94,7 @@
           </div>
         </section>
 
-        <section class="row g-3">
+        <section class="row g-2">
           <div class="col-12 col-md-6">
             <div class="metric">
               <span>Tổng đơn kỳ này</span>
@@ -96,11 +110,11 @@
         </section>
 
         <section class="card border-0 shadow-sm">
-          <div class="card-body p-4">
-            <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-3 mb-3">
+          <div class="card-body p-3">
+            <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2 mb-2">
               <div>
                 <p class="section-kicker">Đơn hàng</p>
-                <h3 class="h4 fw-bold mb-0">Bảng đơn hàng theo sản phẩm</h3>
+                <h3 class="h5 fw-bold mb-0">Bảng đơn hàng theo sản phẩm</h3>
               </div>
               <span class="text-secondary small">Dữ liệu lấy theo khoảng ngày phía trên</span>
             </div>
@@ -122,6 +136,17 @@
         </section>
       </section>
     </main>
+
+    <aside class="jobs-drawer" id="jobsDrawer" aria-label="Danh sách job báo cáo">
+      <div class="jobs-drawer-header">
+        <div>
+          <p class="section-kicker mb-1">Reports</p>
+          <h2 class="h5 fw-bold mb-0">Job đang chạy</h2>
+        </div>
+        <button class="btn-close" id="closeJobsButton" type="button" aria-label="Đóng"></button>
+      </div>
+      <div class="jobs-list" id="jobsList"></div>
+    </aside>
 
     <div class="modal fade" id="shopModal" tabindex="-1" aria-labelledby="shopModalTitle" aria-hidden="true">
       <div class="modal-dialog modal-dialog-centered modal-lg">
