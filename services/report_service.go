@@ -19,6 +19,7 @@ import (
 var ErrReportRateLimited = errors.New("wildberries report API rate limited")
 
 const reportRequestInterval = 61 * time.Second
+const reportRateLimitRetries = 5
 
 var reportLimiters sync.Map
 
@@ -55,6 +56,7 @@ func GetReportDetails(ctx context.Context, apiKey string, dateFrom, dateTo time.
 	limit := 100000
 	client := &http.Client{Timeout: 60 * time.Second}
 	rrdid := int64(0) // Bắt đầu với rrdid = 0
+	rateLimitRetries := 0
 
 	for {
 		if err := waitReportRateLimit(ctx, apiKey); err != nil {
@@ -87,7 +89,11 @@ func GetReportDetails(ctx context.Context, apiKey string, dateFrom, dateTo time.
 		// Xử lý rate limit (429)
 		if res.StatusCode == 429 {
 			_ = res.Body.Close()
-			return nil, fmt.Errorf("%w: retry later", ErrReportRateLimited)
+			rateLimitRetries++
+			if rateLimitRetries > reportRateLimitRetries {
+				return nil, fmt.Errorf("%w: retry later", ErrReportRateLimited)
+			}
+			continue
 		}
 
 		// Kiểm tra status code
@@ -108,6 +114,7 @@ func GetReportDetails(ctx context.Context, apiKey string, dateFrom, dateTo time.
 		if err := json.Unmarshal(body, &reports); err != nil {
 			return nil, fmt.Errorf("failed to decode JSON: %v", err)
 		}
+		rateLimitRetries = 0
 
 		// Thoát nếu không còn dữ liệu
 		if len(reports) == 0 {
