@@ -42,14 +42,6 @@
         <section class="card hero-card border-0 shadow-sm">
           <div class="card-body p-4 p-xl-5">
             <form id="reportForm">
-              <div class="d-flex flex-column flex-xl-row align-items-xl-end justify-content-between gap-3 mb-4">
-                <div class="flex-grow-1">
-                  <label class="form-label fw-semibold" for="reportShopSelect">Shop</label>
-                  <select class="form-select form-select-lg" id="reportShopSelect" required></select>
-                </div>
-                <div class="api-status" id="apiStatus">Chưa kiểm tra token</div>
-              </div>
-
               <div class="row g-3">
                 <div class="col-12 col-md-6 col-xxl-3">
                   <label class="form-label fw-semibold" for="dateFrom">Từ ngày</label>
@@ -173,6 +165,27 @@
             <button class="btn btn-primary" id="saveShopButton" type="submit">Thêm shop</button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <div class="modal fade" id="tokenModal" tabindex="-1" aria-labelledby="tokenModalTitle" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <div>
+              <p class="section-kicker mb-1">API key</p>
+              <h2 class="modal-title h4 fw-bold" id="tokenModalTitle">Cần cập nhật shop</h2>
+            </div>
+            <button class="btn-close" type="button" data-bs-dismiss="modal" aria-label="Đóng"></button>
+          </div>
+          <div class="modal-body">
+            <p class="mb-0" id="tokenModalMessage">API key của shop không còn hợp lệ.</p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Hủy</button>
+            <button class="btn btn-primary" id="updateTokenButton" type="button">Cập nhật</button>
+          </div>
+        </div>
       </div>
     </div>
 
