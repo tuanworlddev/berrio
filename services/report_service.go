@@ -9,7 +9,6 @@ import (
 	"io"
 	"math"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/xuri/excelize/v2"
@@ -21,7 +20,6 @@ var ErrReportRateLimited = errors.New("wildberries report API rate limited")
 func GetReportDetails(ctx context.Context, apiKey string, dateFrom, dateTo time.Time) ([]models.ReportDetails, error) {
 	var allReports []models.ReportDetails
 	limit := 100000
-	rateLimitRetries := 0
 	client := &http.Client{Timeout: 60 * time.Second}
 	rrdid := int64(0) // Bắt đầu với rrdid = 0
 
@@ -51,23 +49,9 @@ func GetReportDetails(ctx context.Context, apiKey string, dateFrom, dateTo time.
 
 		// Xử lý rate limit (429)
 		if res.StatusCode == 429 {
-			wait := retryAfter(res.Header.Get("Retry-After"), 65*time.Second)
 			_ = res.Body.Close()
-			rateLimitRetries++
-			if rateLimitRetries > 1 {
-				return nil, fmt.Errorf("%w: retry later", ErrReportRateLimited)
-			}
-			fmt.Printf("Report API rate limited (429), retry %d/1 after %s\n", rateLimitRetries, wait)
-			timer := time.NewTimer(wait)
-			select {
-			case <-ctx.Done():
-				timer.Stop()
-				return nil, ctx.Err()
-			case <-timer.C:
-			}
-			continue
+			return nil, fmt.Errorf("%w: retry later", ErrReportRateLimited)
 		}
-		rateLimitRetries = 0
 
 		// Kiểm tra status code
 		if res.StatusCode != http.StatusOK {
@@ -107,18 +91,6 @@ func GetReportDetails(ctx context.Context, apiKey string, dateFrom, dateTo time.
 	}
 
 	return allReports, nil
-}
-
-func retryAfter(value string, fallback time.Duration) time.Duration {
-	if seconds, err := strconv.Atoi(value); err == nil && seconds > 0 {
-		return time.Duration(seconds) * time.Second
-	}
-	if t, err := http.ParseTime(value); err == nil {
-		if wait := time.Until(t); wait > 0 {
-			return wait
-		}
-	}
-	return fallback
 }
 
 func GenerateDetailedExcel(reports []models.ReportDetails) ([]byte, error) {
