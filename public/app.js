@@ -36,7 +36,7 @@ const els = {
   mobileBackdrop: document.querySelector("#mobileBackdrop"),
   menuButton: document.querySelector("#menuButton"),
   jobsButton: document.querySelector("#jobsButton"),
-  jobsDot: document.querySelector("#jobsDot"),
+  jobsBadge: document.querySelector("#jobsBadge"),
   jobsDrawer: document.querySelector("#jobsDrawer"),
   jobsList: document.querySelector("#jobsList"),
   closeJobsButton: document.querySelector("#closeJobsButton"),
@@ -339,7 +339,8 @@ function upsertReportJob(job) {
 
 function renderReportJobs() {
   const activeCount = state.reportJobs.filter(isJobActive).length;
-  els.jobsDot.hidden = activeCount === 0;
+  els.jobsBadge.hidden = activeCount === 0;
+  els.jobsBadge.textContent = String(activeCount);
   els.jobsButton.classList.toggle("has-active-jobs", activeCount > 0);
   els.jobsList.innerHTML = "";
 
@@ -361,8 +362,8 @@ function renderReportJobs() {
       </div>
       <div class="job-meta">${escapeHTML(job.dateFrom || "")} - ${escapeHTML(job.dateTo || "")}</div>
       <div class="job-step">${escapeHTML(job.error || job.currentStep || "Đang chờ xử lý")}</div>
-      <div class="job-progress">
-        <span style="width: ${Math.max(0, Math.min(Number(job.progress || 0), 100))}%"></span>
+      <div class="progress job-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar" style="width: ${Math.max(0, Math.min(Number(job.progress || 0), 100))}%"></div>
       </div>
     `;
 
@@ -504,7 +505,6 @@ async function downloadReport(event) {
     const reportJob = { ...jobMeta, ...job };
     state.activeReportJobId = job.id;
     upsertReportJob(reportJob);
-    setJobsDrawerOpen(true, { refresh: false });
     await waitForReportJob(reportJob);
     showToast("Đã tải báo cáo");
   } catch (error) {
