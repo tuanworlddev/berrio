@@ -1,0 +1,270 @@
+:root {
+  --app-bg: #f4f7fb;
+  --sidebar-bg: #ffffff;
+  --text: #15202b;
+  --muted: #627085;
+  --line: #dce4ef;
+  --success: #15765f;
+  --success-soft: #e8f5f0;
+  --danger: #b42318;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top right, rgba(21, 118, 95, 0.08), transparent 32rem),
+    var(--app-bg);
+  color: var(--text);
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: minmax(340px, 410px) 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  border-right: 1px solid var(--line);
+  background: var(--sidebar-bg);
+  padding: 1.5rem;
+}
+
+.sidebar-sticky {
+  position: sticky;
+  top: 1.5rem;
+  display: grid;
+  gap: 0;
+}
+
+.brand-mark {
+  display: grid;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  place-items: center;
+  background: linear-gradient(135deg, #15765f, #1f9c7e);
+  color: #fff;
+  font-weight: 800;
+}
+
+.btn-icon {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  place-items: center;
+  font-size: 1.15rem;
+}
+
+.content {
+  display: grid;
+  align-content: start;
+  gap: 1.25rem;
+  padding: 2rem;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.section-kicker {
+  margin-bottom: 0.25rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.display-title {
+  margin: 0;
+  font-size: clamp(1.8rem, 3vw, 2.6rem);
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.selected-shop {
+  max-width: 24rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--muted);
+  overflow: hidden;
+  padding: 0.7rem 1rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.06);
+}
+
+.shop-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.shop-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+  border: 1px solid var(--line);
+  border-radius: 0.75rem;
+  background: #fff;
+  padding: 0.75rem;
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.shop-item:hover {
+  border-color: rgba(21, 118, 95, 0.5);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+}
+
+.shop-item.is-selected {
+  border-color: var(--success);
+  background: var(--success-soft);
+}
+
+.shop-select-button {
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  text-align: left;
+}
+
+.shop-name {
+  overflow: hidden;
+  color: var(--text);
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shop-meta {
+  margin-top: 0.15rem;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.shop-actions {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.shop-actions .btn {
+  --bs-btn-padding-y: 0.25rem;
+  --bs-btn-padding-x: 0.55rem;
+  --bs-btn-font-size: 0.78rem;
+}
+
+.page-label {
+  min-width: 4.5rem;
+  color: var(--muted);
+  font-weight: 700;
+  text-align: center;
+}
+
+.metric {
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: linear-gradient(180deg, #f8fafc, #eef3f8);
+  padding: 1rem;
+}
+
+.metric span {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.metric strong {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.table th {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.empty-row {
+  color: var(--muted);
+  text-align: center;
+}
+
+.toast-message {
+  position: fixed;
+  right: 1rem;
+  bottom: 1rem;
+  z-index: 1080;
+  max-width: min(28rem, calc(100vw - 2rem));
+  border-radius: 0.75rem;
+  background: #18212b;
+  color: #fff;
+  opacity: 0;
+  pointer-events: none;
+  padding: 0.85rem 1rem;
+  transform: translateY(12px);
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease;
+}
+
+.toast-message.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@media (max-width: 991.98px) {
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .sidebar-sticky {
+    position: static;
+  }
+
+  .page-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .selected-shop {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .sidebar,
+  .content {
+    padding: 1rem;
+  }
+
+  .shop-item {
+    grid-template-columns: 1fr;
+  }
+
+  .shop-actions {
+    justify-content: flex-end;
+  }
+}
