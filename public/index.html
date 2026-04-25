@@ -75,6 +75,15 @@
                 </button>
                 <button class="btn btn-outline-primary btn-lg" id="loadOrdersButton" type="button">Xem đơn hàng</button>
               </div>
+              <div class="report-progress mt-3" id="reportProgress" hidden>
+                <div class="d-flex justify-content-between gap-3 mb-2">
+                  <span id="reportProgressText">Đang chuẩn bị báo cáo</span>
+                  <strong id="reportProgressPercent">0%</strong>
+                </div>
+                <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+                  <div class="progress-bar" id="reportProgressBar" style="width: 0%"></div>
+                </div>
+              </div>
             </form>
           </div>
         </section>

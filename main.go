@@ -53,6 +53,9 @@ func main() {
 	v1 := router.Group("/api/v1")
 	{
 		v1.POST("/reports", controllers.HandleReportRequest)
+		v1.POST("/reports/jobs", controllers.CreateReportJob)
+		v1.GET("/reports/jobs/:id", controllers.GetReportJob)
+		v1.GET("/reports/jobs/:id/download", controllers.DownloadReportJob)
 		v1.POST("/orders", controllers.GetOrdersReport)
 
 		v1.POST("/shops", controllers.CreateShop)

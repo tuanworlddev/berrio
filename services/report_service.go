@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/xuri/excelize/v2"
@@ -17,6 +18,38 @@ import (
 
 var ErrReportRateLimited = errors.New("wildberries report API rate limited")
 
+const reportRequestInterval = 61 * time.Second
+
+var reportLimiters sync.Map
+
+type reportLimiter struct {
+	mu       sync.Mutex
+	nextCall time.Time
+}
+
+func waitReportRateLimit(ctx context.Context, apiKey string) error {
+	value, _ := reportLimiters.LoadOrStore(apiKey, &reportLimiter{})
+	limiter := value.(*reportLimiter)
+
+	limiter.mu.Lock()
+	defer limiter.mu.Unlock()
+
+	now := time.Now()
+	if wait := time.Until(limiter.nextCall); wait > 0 {
+		timer := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+		now = time.Now()
+	}
+
+	limiter.nextCall = now.Add(reportRequestInterval)
+	return nil
+}
+
 func GetReportDetails(ctx context.Context, apiKey string, dateFrom, dateTo time.Time) ([]models.ReportDetails, error) {
 	var allReports []models.ReportDetails
 	limit := 100000
@@ -24,6 +57,10 @@ func GetReportDetails(ctx context.Context, apiKey string, dateFrom, dateTo time.
 	rrdid := int64(0) // Bắt đầu với rrdid = 0
 
 	for {
+		if err := waitReportRateLimit(ctx, apiKey); err != nil {
+			return nil, err
+		}
+
 		// Tạo URL với dateFrom, dateTo, limit và rrdid
 		url := fmt.Sprintf(
 			"https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=%s&dateTo=%s&limit=%d&rrdid=%d",

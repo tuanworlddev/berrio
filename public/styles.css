@@ -263,6 +263,27 @@ body {
   color: #b91c1c;
 }
 
+.report-progress {
+  border: 1px solid var(--line);
+  border-radius: 0.85rem;
+  background: #fff;
+  color: var(--muted);
+  padding: 0.85rem;
+}
+
+.report-progress strong {
+  color: var(--primary-dark);
+}
+
+.progress,
+.progress-bar {
+  border-radius: 999px;
+}
+
+.progress-bar {
+  background-color: var(--primary);
+}
+
 .metric {
   border: 1px solid var(--line);
   border-radius: 1rem;

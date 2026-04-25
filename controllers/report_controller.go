@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"omnituan.online/models"
 	"omnituan.online/services"
 )
 
@@ -34,46 +35,18 @@ type ReportRequest struct {
 }
 
 // @Summary      Generate and download report files
-// @Description  Generates two Excel report files based on API key and date range, zips them, and returns the ZIP file for download
+// @Description  Generates Excel report files based on API key and date range, zips them, and returns the ZIP file for download
 // @Tags         reports
 // @Accept       json
 // @Produce      application/zip
 // @Param        request  body      ReportRequest  true  "Report request parameters"
-// @Success      200      {file}    binary         "ZIP file containing report1.xlsx and report2.xlsx"
+// @Success      200      {file}    binary         "ZIP file containing report_total.xlsx"
 // @Failure      400      {object}  map[string]string  "Invalid request parameters or date format"
 // @Failure      500      {object}  map[string]string  "Internal server error"
 // @Router       /reports [post]
 func HandleReportRequest(c *gin.Context) {
-	var req ReportRequest
-
-	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-		return
-	}
-
-	if req.Tax == 0 {
-		req.Tax = 0.06
-	}
-	if req.Discount == 0 {
-		req.Discount = 3.5
-	}
-	if req.Discount < 0 || req.Tax < 0 {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "tax and discount must be greater than or equal to 0"})
-		return
-	}
-
-	dateFrom, err := time.Parse("2006-01-02", req.DateFrom)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid dateFrom format. Use YYYY-MM-DD"})
-		return
-	}
-	dateTo, err := time.Parse("2006-01-02", req.DateTo)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid dateTo format. Use YYYY-MM-DD"})
-		return
-	}
-	if dateTo.Before(dateFrom) {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "dateTo must be after dateFrom"})
+	req, dateFrom, dateTo, ok := parseReportRequest(c)
+	if !ok {
 		return
 	}
 
@@ -92,70 +65,102 @@ func HandleReportRequest(c *gin.Context) {
 
 	reports, err := services.GetReportDetails(ctx, req.APIKey, dateFrom, dateTo)
 	if err != nil {
-		switch {
-		case errors.Is(err, services.ErrReportRateLimited):
-			c.JSON(http.StatusTooManyRequests, gin.H{"error": "Wildberries đang giới hạn tần suất lấy báo cáo. Vui lòng thử lại sau vài phút."})
-		case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
-			c.JSON(http.StatusGatewayTimeout, gin.H{"error": "Request lấy báo cáo quá lâu hoặc đã bị hủy. Vui lòng thử lại với khoảng ngày ngắn hơn."})
-		default:
-			c.JSON(http.StatusBadRequest, gin.H{"error": "Cannot get reports", "detail": err.Error()})
-		}
+		writeReportError(c, err)
 		return
 	}
-	// fmt.Println("Excel 1")
-	// report1, err1 := services.GenerateDetailedExcel(reports)
-	fmt.Println("Excel 2")
-	report2, err2 := services.GenerateReportExcel(reports, req.Tax, req.Discount)
 
-	// if err1 != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate Excel files"})
-	// 	return
-	// }
-
-	if err2 != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate Excel files"})
+	data, err := buildReportZip(reports, req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo file Excel"})
 		return
+	}
+
+	storeReportCache(cacheKey, data)
+	writeReportZip(c, data)
+}
+
+func parseReportRequest(c *gin.Context) (ReportRequest, time.Time, time.Time, bool) {
+	var req ReportRequest
+	if err := c.ShouldBindBodyWithJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return req, time.Time{}, time.Time{}, false
+	}
+
+	if req.Tax == 0 {
+		req.Tax = 0.06
+	}
+	if req.Discount == 0 {
+		req.Discount = 3.5
+	}
+	if req.Discount < 0 || req.Tax < 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "tax và discount phải lớn hơn hoặc bằng 0"})
+		return req, time.Time{}, time.Time{}, false
+	}
+
+	dateFrom, err := time.Parse("2006-01-02", req.DateFrom)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dateFrom không hợp lệ. Dùng định dạng YYYY-MM-DD"})
+		return req, time.Time{}, time.Time{}, false
+	}
+	dateTo, err := time.Parse("2006-01-02", req.DateTo)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dateTo không hợp lệ. Dùng định dạng YYYY-MM-DD"})
+		return req, time.Time{}, time.Time{}, false
+	}
+	if dateTo.Before(dateFrom) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "dateTo phải sau hoặc bằng dateFrom"})
+		return req, time.Time{}, time.Time{}, false
+	}
+
+	return req, dateFrom, dateTo, true
+}
+
+func buildReportZip(reports []models.ReportDetails, req ReportRequest) ([]byte, error) {
+	report, err := services.GenerateReportExcel(reports, req.Tax, req.Discount)
+	if err != nil {
+		return nil, err
 	}
 
 	var zipBuffer bytes.Buffer
 	zipWriter := zip.NewWriter(&zipBuffer)
-
-	// fw1, err := zipWriter.Create("report_vi.xlsx")
-	// if err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create zip entry 1"})
-	// 	return
-	// }
-	// if _, err := fw1.Write(report1); err != nil {
-	// 	c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write file 1 to zip"})
-	// 	return
-	// }
-
-	fw2, err := zipWriter.Create("report_total.xlsx")
+	fw, err := zipWriter.Create("report_total.xlsx")
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to create zip entry 1"})
-		return
+		_ = zipWriter.Close()
+		return nil, err
 	}
-	if _, err := fw2.Write(report2); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to write file 2 to zip"})
-		return
+	if _, err := fw.Write(report); err != nil {
+		_ = zipWriter.Close()
+		return nil, err
 	}
-
 	if err := zipWriter.Close(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to close zip"})
-		return
+		return nil, err
 	}
 
-	reportCache.Store(cacheKey, cachedReport{
-		data:      append([]byte(nil), zipBuffer.Bytes()...),
-		expiresAt: time.Now().Add(10 * time.Minute),
-	})
-	writeReportZip(c, zipBuffer.Bytes())
+	return zipBuffer.Bytes(), nil
+}
+
+func writeReportError(c *gin.Context, err error) {
+	switch {
+	case errors.Is(err, services.ErrReportRateLimited):
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "Wildberries đang giới hạn tần suất lấy báo cáo. Vui lòng thử lại sau vài phút."})
+	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
+		c.JSON(http.StatusGatewayTimeout, gin.H{"error": "Request lấy báo cáo quá lâu hoặc đã bị hủy. Vui lòng thử lại với khoảng ngày ngắn hơn."})
+	default:
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Không thể lấy báo cáo", "detail": err.Error()})
+	}
 }
 
 func writeReportZip(c *gin.Context, data []byte) {
 	c.Header("Content-Type", "application/zip")
 	c.Header("Content-Disposition", `attachment; filename="reports.zip"`)
 	c.Data(http.StatusOK, "application/zip", data)
+}
+
+func storeReportCache(cacheKey string, data []byte) {
+	reportCache.Store(cacheKey, cachedReport{
+		data:      append([]byte(nil), data...),
+		expiresAt: time.Now().Add(10 * time.Minute),
+	})
 }
 
 func reportCacheKey(req ReportRequest) string {

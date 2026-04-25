@@ -50,6 +50,10 @@ const els = {
   tax: document.querySelector("#tax"),
   discount: document.querySelector("#discount"),
   downloadReportButton: document.querySelector("#downloadReportButton"),
+  reportProgress: document.querySelector("#reportProgress"),
+  reportProgressText: document.querySelector("#reportProgressText"),
+  reportProgressPercent: document.querySelector("#reportProgressPercent"),
+  reportProgressBar: document.querySelector("#reportProgressBar"),
   loadOrdersButton: document.querySelector("#loadOrdersButton"),
   totalOrders: document.querySelector("#totalOrders"),
   totalPrevOrders: document.querySelector("#totalPrevOrders"),
@@ -377,12 +381,12 @@ async function downloadReport(event) {
   }
 
   els.downloadReportButton.disabled = true;
-  els.downloadReportButton.textContent = "Đang tạo báo cáo";
+  els.downloadReportButton.textContent = "Đang tạo job";
+  updateReportProgress({ progress: 0, currentStep: "Đang tạo job báo cáo" });
 
   try {
-    const response = await fetch("/api/v1/reports", {
+    const job = await requestJSON("/api/v1/reports/jobs", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         apiKey: shop.apiKey,
         dateFrom: els.dateFrom.value,
@@ -391,21 +395,7 @@ async function downloadReport(event) {
         discount: Number(els.discount.value || 3.5),
       }),
     });
-
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}));
-      throw new Error(body.error || "Không thể tạo báo cáo");
-    }
-
-    const blob = await response.blob();
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = `reports-${els.dateFrom.value}-${els.dateTo.value}.zip`;
-    document.body.appendChild(link);
-    link.click();
-    link.remove();
-    URL.revokeObjectURL(url);
+    await waitForReportJob(job.id);
     showToast("Đã tải báo cáo");
   } catch (error) {
     showToast(error.message);
@@ -413,6 +403,58 @@ async function downloadReport(event) {
     els.downloadReportButton.disabled = false;
     els.downloadReportButton.textContent = "Tải báo cáo ZIP";
   }
+}
+
+function updateReportProgress(job) {
+  const progress = Math.max(0, Math.min(Number(job.progress || 0), 100));
+  els.reportProgress.hidden = false;
+  els.reportProgressText.textContent = job.currentStep || "Đang xử lý báo cáo";
+  els.reportProgressPercent.textContent = `${progress}%`;
+  els.reportProgressBar.style.width = `${progress}%`;
+  els.reportProgressBar.setAttribute("aria-valuenow", String(progress));
+  els.downloadReportButton.textContent = progress > 0 ? `Đang xử lý ${progress}%` : "Đang xử lý";
+}
+
+async function waitForReportJob(jobID) {
+  let job = await requestJSON(`/api/v1/reports/jobs/${jobID}`);
+  updateReportProgress(job);
+
+  while (job.status === "queued" || job.status === "running") {
+    await sleep(3000);
+    job = await requestJSON(`/api/v1/reports/jobs/${jobID}`);
+    updateReportProgress(job);
+  }
+
+  if (job.status === "failed") {
+    throw new Error(job.error || "Không thể tạo báo cáo");
+  }
+  if (job.status !== "done" || !job.downloadUrl) {
+    throw new Error("Báo cáo chưa sẵn sàng");
+  }
+
+  await downloadReportJob(job.downloadUrl);
+}
+
+async function downloadReportJob(downloadUrl) {
+  const response = await fetch(downloadUrl);
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+    throw new Error(body.error || "Không thể tải báo cáo");
+  }
+
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `reports-${els.dateFrom.value}-${els.dateTo.value}.zip`;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 async function loadOrders() {
