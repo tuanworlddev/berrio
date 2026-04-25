@@ -40,6 +40,7 @@ const els = {
   jobsDrawer: document.querySelector("#jobsDrawer"),
   jobsList: document.querySelector("#jobsList"),
   closeJobsButton: document.querySelector("#closeJobsButton"),
+  currentShopTitle: document.querySelector("#currentShopTitle"),
   addShopButton: document.querySelector("#addShopButton"),
   shopForm: document.querySelector("#shopForm"),
   shopModal: document.querySelector("#shopModal"),
@@ -212,6 +213,7 @@ function renderShops() {
   els.shopCount.textContent = `(${state.total})`;
   els.shopLoadedLabel.textContent = `${state.shops.length} đã tải`;
   els.shopList.innerHTML = "";
+  els.currentShopTitle.textContent = getSelectedShop()?.name || "Chưa chọn shop";
 
   if (state.shops.length === 0) {
     const empty = document.createElement("div");
@@ -231,7 +233,6 @@ function renderShops() {
     info.type = "button";
     info.innerHTML = `
       <div class="shop-name">${escapeHTML(shop.name)}${hasRunningJob ? '<span class="shop-job-spinner" title="Đang có job báo cáo"></span>' : ""}</div>
-      <div class="shop-meta">${escapeHTML(shop.marketplace || "Chưa có sàn")}</div>
     `;
     info.addEventListener("click", () => {
       selectShop(shop.id);
