@@ -1,14 +1,14 @@
 package controllers
 
 import (
-	"archive/zip"
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -28,6 +28,7 @@ type cachedReport struct {
 
 type ReportRequest struct {
 	APIKey   string  `form:"apiKey" json:"apiKey" binding:"required"`
+	ShopName string  `form:"shopName" json:"shopName"`
 	DateFrom string  `form:"dateFrom" json:"dateFrom" binding:"required"`
 	DateTo   string  `form:"dateTo" json:"dateTo" binding:"required"`
 	Tax      float64 `form:"tax" json:"tax" binding:"required"`
@@ -35,12 +36,12 @@ type ReportRequest struct {
 }
 
 // @Summary      Generate and download report files
-// @Description  Generates Excel report files based on API key and date range, zips them, and returns the ZIP file for download
+// @Description  Generates an Excel report based on API key and date range, then returns the XLSX file for download
 // @Tags         reports
 // @Accept       json
-// @Produce      application/zip
+// @Produce      application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
 // @Param        request  body      ReportRequest  true  "Report request parameters"
-// @Success      200      {file}    binary         "ZIP file containing report_total.xlsx"
+// @Success      200      {file}    binary         "Excel report file"
 // @Failure      400      {object}  map[string]string  "Invalid request parameters or date format"
 // @Failure      500      {object}  map[string]string  "Internal server error"
 // @Router       /reports [post]
@@ -54,7 +55,7 @@ func HandleReportRequest(c *gin.Context) {
 	if cached, ok := reportCache.Load(cacheKey); ok {
 		item := cached.(cachedReport)
 		if time.Now().Before(item.expiresAt) {
-			writeReportZip(c, item.data)
+			writeReportExcel(c, item.data, reportFileName(req))
 			return
 		}
 		reportCache.Delete(cacheKey)
@@ -69,14 +70,14 @@ func HandleReportRequest(c *gin.Context) {
 		return
 	}
 
-	data, err := buildReportZip(reports, req)
+	data, err := buildReportExcel(reports, req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Không thể tạo file Excel"})
 		return
 	}
 
 	storeReportCache(cacheKey, data)
-	writeReportZip(c, data)
+	writeReportExcel(c, data, reportFileName(req))
 }
 
 func parseReportRequest(c *gin.Context) (ReportRequest, time.Time, time.Time, bool) {
@@ -115,28 +116,8 @@ func parseReportRequest(c *gin.Context) (ReportRequest, time.Time, time.Time, bo
 	return req, dateFrom, dateTo, true
 }
 
-func buildReportZip(reports []models.ReportDetails, req ReportRequest) ([]byte, error) {
-	report, err := services.GenerateReportExcel(reports, req.Tax, req.Discount)
-	if err != nil {
-		return nil, err
-	}
-
-	var zipBuffer bytes.Buffer
-	zipWriter := zip.NewWriter(&zipBuffer)
-	fw, err := zipWriter.Create("report_total.xlsx")
-	if err != nil {
-		_ = zipWriter.Close()
-		return nil, err
-	}
-	if _, err := fw.Write(report); err != nil {
-		_ = zipWriter.Close()
-		return nil, err
-	}
-	if err := zipWriter.Close(); err != nil {
-		return nil, err
-	}
-
-	return zipBuffer.Bytes(), nil
+func buildReportExcel(reports []models.ReportDetails, req ReportRequest) ([]byte, error) {
+	return services.GenerateReportExcel(reports, req.Tax, req.Discount)
 }
 
 func writeReportError(c *gin.Context, err error) {
@@ -150,10 +131,11 @@ func writeReportError(c *gin.Context, err error) {
 	}
 }
 
-func writeReportZip(c *gin.Context, data []byte) {
-	c.Header("Content-Type", "application/zip")
-	c.Header("Content-Disposition", `attachment; filename="reports.zip"`)
-	c.Data(http.StatusOK, "application/zip", data)
+func writeReportExcel(c *gin.Context, data []byte, filename string) {
+	contentType := "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+	c.Header("Content-Type", contentType)
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="report.xlsx"; filename*=UTF-8''%s`, url.PathEscape(filename)))
+	c.Data(http.StatusOK, contentType, data)
 }
 
 func storeReportCache(cacheKey string, data []byte) {
@@ -166,4 +148,34 @@ func storeReportCache(cacheKey string, data []byte) {
 func reportCacheKey(req ReportRequest) string {
 	hash := sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%s|%.4f|%.4f", req.APIKey, req.DateFrom, req.DateTo, req.Tax, req.Discount)))
 	return hex.EncodeToString(hash[:])
+}
+
+func reportFileName(req ReportRequest) string {
+	shopName := sanitizeFileName(req.ShopName)
+	if shopName == "" {
+		shopName = "shop"
+	}
+	return fmt.Sprintf("%s_report_%s_%s.xlsx", shopName, req.DateFrom, req.DateTo)
+}
+
+func sanitizeFileName(value string) string {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return ""
+	}
+
+	replacer := strings.NewReplacer(
+		"\\", "-",
+		"/", "-",
+		":", "-",
+		"*", "-",
+		"?", "-",
+		`"`, "-",
+		"<", "-",
+		">", "-",
+		"|", "-",
+	)
+	value = replacer.Replace(value)
+	value = strings.Join(strings.Fields(value), " ")
+	return strings.Trim(value, ". ")
 }

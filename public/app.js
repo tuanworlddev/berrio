@@ -389,6 +389,7 @@ async function downloadReport(event) {
       method: "POST",
       body: JSON.stringify({
         apiKey: shop.apiKey,
+        shopName: shop.name,
         dateFrom: els.dateFrom.value,
         dateTo: els.dateTo.value,
         tax: Number(els.tax.value || 0.06),
@@ -401,7 +402,7 @@ async function downloadReport(event) {
     showToast(error.message);
   } finally {
     els.downloadReportButton.disabled = false;
-    els.downloadReportButton.textContent = "Tải báo cáo ZIP";
+    els.downloadReportButton.textContent = "Tải báo cáo Excel";
   }
 }
 
@@ -446,7 +447,7 @@ async function downloadReportJob(downloadUrl) {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `reports-${els.dateFrom.value}-${els.dateTo.value}.zip`;
+  link.download = `${sanitizeFileName(getSelectedShop()?.name || "shop")}_report_${els.dateFrom.value}_${els.dateTo.value}.xlsx`;
   document.body.appendChild(link);
   link.click();
   link.remove();
@@ -455,6 +456,14 @@ async function downloadReportJob(downloadUrl) {
 
 function sleep(ms) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function sanitizeFileName(value) {
+  return String(value || "shop")
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, "-")
+    .replace(/\s+/g, " ")
+    .replace(/^[. ]+|[. ]+$/g, "") || "shop";
 }
 
 async function loadOrders() {

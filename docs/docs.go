@@ -72,12 +72,12 @@ const docTemplate = `{
         },
         "/reports": {
             "post": {
-                "description": "Generates two Excel report files based on API key and date range, zips them, and returns the ZIP file for download",
+                "description": "Generates an Excel report based on API key and date range, then returns the XLSX file for download",
                 "consumes": [
                     "application/json"
                 ],
                 "produces": [
-                    "application/zip"
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 ],
                 "tags": [
                     "reports"
@@ -96,7 +96,7 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "ZIP file containing report1.xlsx and report2.xlsx",
+                        "description": "Excel report file",
                         "schema": {
                             "type": "file"
                         }

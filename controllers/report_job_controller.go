@@ -107,7 +107,7 @@ func DownloadReportJob(c *gin.Context) {
 		return
 	}
 
-	writeReportZip(c, job.data)
+	writeReportExcel(c, job.data, reportFileName(job.req))
 }
 
 func runReportJob(jobID string, chunks []reportChunk) {
@@ -146,7 +146,7 @@ func runReportJob(jobID string, chunks []reportChunk) {
 		})
 	}
 
-	data, err := buildReportZip(reports, job.req)
+	data, err := buildReportExcel(reports, job.req)
 	if err != nil {
 		reportJobs.fail(jobID, "Không thể tạo file Excel")
 		return
