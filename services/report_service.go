@@ -9,6 +9,7 @@ import (
 	"io"
 	"math"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -20,6 +21,140 @@ var ErrReportRateLimited = errors.New("wildberries report API rate limited")
 
 const reportRequestInterval = 61 * time.Second
 const reportRateLimitRetries = 5
+const financeReportURL = "https://finance-api.wildberries.ru/api/finance/v1/sales-reports/detailed"
+
+type financeReportRequest struct {
+	DateFrom string `json:"dateFrom"`
+	DateTo   string `json:"dateTo"`
+	Limit    int    `json:"limit"`
+	RrdID    int64  `json:"rrdId"`
+	Period   string `json:"period"`
+}
+
+type financeReportDetail struct {
+	ReportID                    int64           `json:"reportId"`
+	DateFrom                    string          `json:"dateFrom"`
+	DateTo                      string          `json:"dateTo"`
+	CreateDate                  string          `json:"createDate"`
+	Currency                    string          `json:"currency"`
+	ReportType                  int             `json:"reportType"`
+	RrdID                       int64           `json:"rrdId"`
+	GiID                        int64           `json:"giId"`
+	DlvPrc                      flexibleFloat64 `json:"dlvPrc"`
+	FixTariffDateFrom           string          `json:"fixTariffDateFrom"`
+	FixTariffDateTo             string          `json:"fixTariffDateTo"`
+	SubjectName                 string          `json:"subjectName"`
+	NmID                        int64           `json:"nmId"`
+	BrandName                   string          `json:"brandName"`
+	VendorCode                  string          `json:"vendorCode"`
+	TechSize                    string          `json:"techSize"`
+	SKU                         string          `json:"sku"`
+	DocTypeName                 string          `json:"docTypeName"`
+	Quantity                    int             `json:"quantity"`
+	RetailPrice                 flexibleFloat64 `json:"retailPrice"`
+	RetailAmount                flexibleFloat64 `json:"retailAmount"`
+	SalePercent                 int             `json:"salePercent"`
+	CommissionPercent           flexibleFloat64 `json:"commissionPercent"`
+	OfficeName                  string          `json:"officeName"`
+	SellerOperName              string          `json:"sellerOperName"`
+	OrderDt                     flexibleTime    `json:"orderDt"`
+	SaleDt                      flexibleTime    `json:"saleDt"`
+	RrDate                      string          `json:"rrDate"`
+	ShkID                       int64           `json:"shkId"`
+	RetailPriceWithDisc         flexibleFloat64 `json:"retailPriceWithDisc"`
+	DeliveryAmount              int             `json:"deliveryAmount"`
+	ReturnAmount                int             `json:"returnAmount"`
+	DeliveryService             flexibleFloat64 `json:"deliveryService"`
+	GiBoxTypeName               string          `json:"giBoxTypeName"`
+	ProductDiscountForReport    flexibleFloat64 `json:"productDiscountForReport"`
+	SellerPromo                 flexibleFloat64 `json:"sellerPromo"`
+	SPP                         flexibleFloat64 `json:"spp"`
+	KvwBase                     flexibleFloat64 `json:"kvwBase"`
+	Kvw                         flexibleFloat64 `json:"kvw"`
+	SupRatingUp                 flexibleFloat64 `json:"supRatingUp"`
+	IsKgvpV2                    flexibleFloat64 `json:"isKgvpV2"`
+	PpvzSalesCommission         flexibleFloat64 `json:"ppvzSalesCommission"`
+	ForPay                      flexibleFloat64 `json:"forPay"`
+	PpvzReward                  flexibleFloat64 `json:"ppvzReward"`
+	AcquiringFee                flexibleFloat64 `json:"acquiringFee"`
+	AcquiringPercent            flexibleFloat64 `json:"acquiringPercent"`
+	PaymentProcessing           string          `json:"paymentProcessing"`
+	AcquiringBank               string          `json:"acquiringBank"`
+	Vw                          flexibleFloat64 `json:"vw"`
+	VwNds                       flexibleFloat64 `json:"vwNds"`
+	PpvzOfficeName              string          `json:"ppvzOfficeName"`
+	PpvzOfficeID                int             `json:"ppvzOfficeId"`
+	PpvzSupplierName            string          `json:"ppvzSupplierName"`
+	PpvzSupplierInn             string          `json:"ppvzSupplierInn"`
+	DeclarationNumber           string          `json:"declarationNumber"`
+	BonusTypeName               string          `json:"bonusTypeName"`
+	StickerID                   string          `json:"stickerId"`
+	Country                     string          `json:"country"`
+	SrvDbs                      bool            `json:"srvDbs"`
+	Penalty                     flexibleFloat64 `json:"penalty"`
+	AdditionalPayment           flexibleFloat64 `json:"additionalPayment"`
+	RebillLogisticCost          flexibleFloat64 `json:"rebillLogisticCost"`
+	RebillLogisticOrg           string          `json:"rebillLogisticOrg"`
+	PaidStorage                 flexibleFloat64 `json:"paidStorage"`
+	Deduction                   flexibleFloat64 `json:"deduction"`
+	PaidAcceptance              flexibleFloat64 `json:"paidAcceptance"`
+	OrderID                     int64           `json:"orderId"`
+	Kiz                         string          `json:"kiz"`
+	IsB2B                       bool            `json:"isB2b"`
+	TrbxID                      string          `json:"trbxId"`
+	InstallmentCofinancing      flexibleFloat64 `json:"installmentCofinancingAmount"`
+	WibesDiscountPercent        int             `json:"wibesDiscountPercent"`
+	Srid                        string          `json:"srid"`
+}
+
+type flexibleFloat64 float64
+
+func (value *flexibleFloat64) UnmarshalJSON(data []byte) error {
+	if string(data) == "null" || string(data) == `""` {
+		*value = 0
+		return nil
+	}
+
+	raw, err := strconv.Unquote(string(data))
+	if err != nil {
+		raw = string(data)
+	}
+	if raw == "" {
+		*value = 0
+		return nil
+	}
+
+	parsed, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
+		return err
+	}
+	*value = flexibleFloat64(parsed)
+	return nil
+}
+
+type flexibleTime time.Time
+
+func (value *flexibleTime) UnmarshalJSON(data []byte) error {
+	raw, err := strconv.Unquote(string(data))
+	if err != nil || raw == "" {
+		*value = flexibleTime(time.Time{})
+		return nil
+	}
+
+	for _, layout := range []string{time.RFC3339, "2006-01-02"} {
+		parsed, err := time.Parse(layout, raw)
+		if err == nil {
+			*value = flexibleTime(parsed)
+			return nil
+		}
+	}
+	*value = flexibleTime(time.Time{})
+	return nil
+}
+
+func (value flexibleTime) Time() time.Time {
+	return time.Time(value)
+}
 
 var reportLimiters sync.Map
 
@@ -63,17 +198,19 @@ func GetReportDetails(ctx context.Context, apiKey string, dateFrom, dateTo time.
 			return nil, err
 		}
 
-		// Tạo URL với dateFrom, dateTo, limit và rrdid
-		url := fmt.Sprintf(
-			"https://statistics-api.wildberries.ru/api/v5/supplier/reportDetailByPeriod?dateFrom=%s&dateTo=%s&limit=%d&rrdid=%d",
-			dateFrom.Format("2006-01-02"),
-			dateTo.Format("2006-01-02"),
-			limit,
-			rrdid,
-		)
+		payload, err := json.Marshal(financeReportRequest{
+			DateFrom: dateFrom.Format("2006-01-02"),
+			DateTo:   dateTo.Format("2006-01-02"),
+			Limit:    limit,
+			RrdID:    rrdid,
+			Period:   "daily",
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to encode request: %v", err)
+		}
 
 		// Tạo request
-		req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+		req, err := http.NewRequestWithContext(ctx, "POST", financeReportURL, bytes.NewReader(payload))
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %v", err)
 		}
@@ -96,6 +233,11 @@ func GetReportDetails(ctx context.Context, apiKey string, dateFrom, dateTo time.
 			continue
 		}
 
+		if res.StatusCode == http.StatusNoContent {
+			_ = res.Body.Close()
+			break
+		}
+
 		// Kiểm tra status code
 		if res.StatusCode != http.StatusOK {
 			body, _ := io.ReadAll(res.Body)
@@ -110,18 +252,19 @@ func GetReportDetails(ctx context.Context, apiKey string, dateFrom, dateTo time.
 			return nil, fmt.Errorf("failed to read response: %v", err)
 		}
 
-		var reports []models.ReportDetails
-		if err := json.Unmarshal(body, &reports); err != nil {
+		var details []financeReportDetail
+		if err := json.Unmarshal(body, &details); err != nil {
 			return nil, fmt.Errorf("failed to decode JSON: %v", err)
 		}
 		rateLimitRetries = 0
 
 		// Thoát nếu không còn dữ liệu
-		if len(reports) == 0 {
+		if len(details) == 0 {
 			fmt.Println("No more data to fetch.")
 			break
 		}
 
+		reports := mapFinanceReportDetails(details)
 		allReports = append(allReports, reports...)
 
 		// Cập nhật rrdid từ bản ghi cuối cùng
@@ -135,6 +278,88 @@ func GetReportDetails(ctx context.Context, apiKey string, dateFrom, dateTo time.
 	}
 
 	return allReports, nil
+}
+
+func mapFinanceReportDetails(details []financeReportDetail) []models.ReportDetails {
+	reports := make([]models.ReportDetails, 0, len(details))
+	for _, item := range details {
+		reports = append(reports, models.ReportDetails{
+			RealizationReportID:          item.ReportID,
+			DateFrom:                     item.DateFrom,
+			DateTo:                       item.DateTo,
+			CreateDt:                     item.CreateDate,
+			CurrencyName:                 item.Currency,
+			RrdID:                        item.RrdID,
+			GiID:                         item.GiID,
+			DlvPrc:                       float64(item.DlvPrc),
+			FixTariffDateFrom:            item.FixTariffDateFrom,
+			FixTariffDateTo:              item.FixTariffDateTo,
+			SubjectName:                  item.SubjectName,
+			NmID:                         item.NmID,
+			BrandName:                    item.BrandName,
+			SaName:                       item.VendorCode,
+			TsName:                       item.TechSize,
+			Barcode:                      item.SKU,
+			DocTypeName:                  item.DocTypeName,
+			Quantity:                     item.Quantity,
+			RetailPrice:                  float64(item.RetailPrice),
+			RetailAmount:                 float64(item.RetailAmount),
+			SalePercent:                  item.SalePercent,
+			CommissionPercent:            float64(item.CommissionPercent),
+			OfficeName:                   item.OfficeName,
+			SupplierOperName:             item.SellerOperName,
+			OrderDt:                      item.OrderDt.Time(),
+			SaleDt:                       item.SaleDt.Time(),
+			RrDt:                         item.RrDate,
+			ShkID:                        item.ShkID,
+			RetailPriceWithDiscRub:       float64(item.RetailPriceWithDisc),
+			DeliveryAmount:               item.DeliveryAmount,
+			ReturnAmount:                 item.ReturnAmount,
+			DeliveryRub:                  float64(item.DeliveryService),
+			GiBoxTypeName:                item.GiBoxTypeName,
+			ProductDiscountForReport:     float64(item.ProductDiscountForReport),
+			SupplierPromo:                float64(item.SellerPromo),
+			PpvzSppPrc:                   float64(item.SPP),
+			PpvzKvwPrcBase:               float64(item.KvwBase),
+			PpvzKvwPrc:                   float64(item.Kvw),
+			SupRatingPrcUp:               float64(item.SupRatingUp),
+			IsKgvpV2:                     float64(item.IsKgvpV2),
+			PpvzSalesCommission:          float64(item.PpvzSalesCommission),
+			PpvzForPay:                   float64(item.ForPay),
+			PpvzReward:                   float64(item.PpvzReward),
+			AcquiringFee:                 float64(item.AcquiringFee),
+			AcquiringPercent:             float64(item.AcquiringPercent),
+			PaymentProcessing:            item.PaymentProcessing,
+			AcquiringBank:                item.AcquiringBank,
+			PpvzVw:                       float64(item.Vw),
+			PpvzVwNds:                    float64(item.VwNds),
+			PpvzOfficeName:               item.PpvzOfficeName,
+			PpvzOfficeID:                 item.PpvzOfficeID,
+			PpvzSupplierName:             item.PpvzSupplierName,
+			PpvzInn:                      item.PpvzSupplierInn,
+			DeclarationNumber:            item.DeclarationNumber,
+			BonusTypeName:                item.BonusTypeName,
+			StickerID:                    item.StickerID,
+			SiteCountry:                  item.Country,
+			SrvDbs:                       item.SrvDbs,
+			Penalty:                      float64(item.Penalty),
+			AdditionalPayment:            float64(item.AdditionalPayment),
+			RebillLogisticCost:           float64(item.RebillLogisticCost),
+			RebillLogisticOrg:            item.RebillLogisticOrg,
+			StorageFee:                   float64(item.PaidStorage),
+			Deduction:                    float64(item.Deduction),
+			Acceptance:                   float64(item.PaidAcceptance),
+			AssemblyID:                   item.OrderID,
+			Kiz:                          item.Kiz,
+			Srid:                         item.Srid,
+			ReportType:                   item.ReportType,
+			IsLegalEntity:                item.IsB2B,
+			TrbxID:                       item.TrbxID,
+			InstallmentCofinancingAmount: float64(item.InstallmentCofinancing),
+			WibesWbDiscountPercent:       item.WibesDiscountPercent,
+		})
+	}
+	return reports
 }
 
 func GenerateDetailedExcel(reports []models.ReportDetails) ([]byte, error) {
