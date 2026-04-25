@@ -1,29 +1,53 @@
+const iconEdit = `
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 20h9" />
+    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z" />
+  </svg>
+`;
+
+const iconTrash = `
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M3 6h18" />
+    <path d="M8 6V4h8v2" />
+    <path d="m19 6-1 14H6L5 6" />
+    <path d="M10 11v6" />
+    <path d="M14 11v6" />
+  </svg>
+`;
+
 const state = {
   shops: [],
   selectedShopId: "",
   page: 1,
-  limit: 10,
+  limit: 20,
+  total: 0,
   totalPages: 1,
+  isLoadingShops: false,
 };
 
 const els = {
+  addShopButton: document.querySelector("#addShopButton"),
   shopForm: document.querySelector("#shopForm"),
+  shopModal: document.querySelector("#shopModal"),
+  shopModalTitle: document.querySelector("#shopModalTitle"),
   shopId: document.querySelector("#shopId"),
   shopName: document.querySelector("#shopName"),
   shopMarketplace: document.querySelector("#shopMarketplace"),
   shopApiKey: document.querySelector("#shopApiKey"),
   shopDescription: document.querySelector("#shopDescription"),
   shopIsActive: document.querySelector("#shopIsActive"),
+  saveShopButton: document.querySelector("#saveShopButton"),
   shopList: document.querySelector("#shopList"),
   shopCount: document.querySelector("#shopCount"),
-  shopPageLabel: document.querySelector("#shopPageLabel"),
-  prevShopPage: document.querySelector("#prevShopPage"),
-  nextShopPage: document.querySelector("#nextShopPage"),
-  clearShopButton: document.querySelector("#clearShopButton"),
+  shopLoadedLabel: document.querySelector("#shopLoadedLabel"),
+  shopLoading: document.querySelector("#shopLoading"),
   refreshShopsButton: document.querySelector("#refreshShopsButton"),
   reportForm: document.querySelector("#reportForm"),
   reportShopSelect: document.querySelector("#reportShopSelect"),
   selectedShopLabel: document.querySelector("#selectedShopLabel"),
+  selectedShopName: document.querySelector("#selectedShopName"),
+  selectedShopMeta: document.querySelector("#selectedShopMeta"),
+  apiStatus: document.querySelector("#apiStatus"),
   dateFrom: document.querySelector("#dateFrom"),
   dateTo: document.querySelector("#dateTo"),
   tax: document.querySelector("#tax"),
@@ -35,6 +59,8 @@ const els = {
   ordersTableBody: document.querySelector("#ordersTableBody"),
   toast: document.querySelector("#toast"),
 };
+
+const shopModal = bootstrap.Modal.getOrCreateInstance(els.shopModal);
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -77,19 +103,59 @@ function getSelectedShop() {
   return state.shops.find((shop) => shop.id === state.selectedShopId) || null;
 }
 
-function renderShops(data) {
-  state.shops = data.items || [];
-  state.totalPages = Math.max(data.totalPages || 1, 1);
-  els.shopCount.textContent = String(data.total || 0);
-  els.shopPageLabel.textContent = `${state.page} / ${state.totalPages}`;
-  els.prevShopPage.disabled = state.page <= 1;
-  els.nextShopPage.disabled = state.page >= state.totalPages;
+function hasMoreShops() {
+  return state.page < state.totalPages;
+}
 
-  if (!state.selectedShopId && state.shops.length > 0) {
-    state.selectedShopId = state.shops[0].id;
+async function loadShops({ reset = false } = {}) {
+  if (state.isLoadingShops) {
+    return;
   }
 
+  state.isLoadingShops = true;
+  els.shopLoading.classList.add("is-visible");
+
+  if (reset) {
+    state.page = 1;
+    state.shops = [];
+    state.selectedShopId = "";
+    renderShops();
+  }
+
+  try {
+    const data = await requestJSON(`/api/v1/shops?page=${state.page}&limit=${state.limit}`);
+    state.total = data.total || 0;
+    state.totalPages = Math.max(data.totalPages || 1, 1);
+
+    const incoming = data.items || [];
+    const seen = new Set(state.shops.map((shop) => shop.id));
+    state.shops = [...state.shops, ...incoming.filter((shop) => !seen.has(shop.id))];
+
+    if (!state.selectedShopId && state.shops.length > 0) {
+      state.selectedShopId = state.shops[0].id;
+    }
+
+    renderShops();
+  } finally {
+    state.isLoadingShops = false;
+    els.shopLoading.classList.remove("is-visible");
+  }
+}
+
+async function loadNextShopPage() {
+  if (!hasMoreShops() || state.isLoadingShops) {
+    return;
+  }
+
+  state.page += 1;
+  await loadShops();
+}
+
+function renderShops() {
+  els.shopCount.textContent = `(${state.total})`;
+  els.shopLoadedLabel.textContent = `${state.shops.length} đã tải`;
   els.shopList.innerHTML = "";
+
   if (state.shops.length === 0) {
     const empty = document.createElement("div");
     empty.className = "shop-item";
@@ -111,15 +177,19 @@ function renderShops(data) {
     actions.className = "shop-actions";
 
     const edit = document.createElement("button");
-    edit.className = "btn btn-outline-secondary";
+    edit.className = "btn btn-outline-primary";
     edit.type = "button";
-    edit.textContent = "Sửa";
-    edit.addEventListener("click", () => fillShopForm(shop));
+    edit.title = "Sửa shop";
+    edit.setAttribute("aria-label", "Sửa shop");
+    edit.innerHTML = iconEdit;
+    edit.addEventListener("click", () => openEditShopModal(shop));
 
     const del = document.createElement("button");
     del.className = "btn btn-outline-danger";
     del.type = "button";
-    del.textContent = "Xóa";
+    del.title = "Xóa shop";
+    del.setAttribute("aria-label", "Xóa shop");
+    del.innerHTML = iconTrash;
     del.addEventListener("click", () => deleteShop(shop));
 
     actions.append(edit, del);
@@ -152,20 +222,36 @@ function renderShopSelect() {
 
 function renderSelectedShop() {
   const shop = getSelectedShop();
-  els.selectedShopLabel.textContent = shop ? shop.name : "Chưa chọn shop";
-}
+  const shopName = shop ? shop.name : "Chưa chọn shop";
+  els.selectedShopLabel.textContent = shopName;
+  els.selectedShopName.textContent = shopName;
+  els.selectedShopMeta.textContent = shop
+    ? `${shop.marketplace || "Chưa có sàn"}${shop.isActive === false ? " - đang tắt" : " - đang hoạt động"}`
+    : "Chọn một shop ở bên trái để bắt đầu.";
 
-async function loadShops() {
-  const data = await requestJSON(`/api/v1/shops?page=${state.page}&limit=${state.limit}`);
-  renderShops(data);
+  els.apiStatus.textContent = shop?.apiKey ? "API key sẵn sàng" : "Chưa có API key";
+  els.apiStatus.classList.toggle("is-ready", Boolean(shop?.apiKey));
 }
 
 function selectShop(id) {
   state.selectedShopId = id;
-  renderShops({ items: state.shops, total: Number(els.shopCount.textContent), totalPages: state.totalPages });
+  renderShops();
 }
 
-function fillShopForm(shop) {
+function clearShopForm() {
+  els.shopForm.reset();
+  els.shopId.value = "";
+  els.shopIsActive.checked = true;
+  els.shopModalTitle.textContent = "Thêm shop";
+  els.saveShopButton.textContent = "Thêm shop";
+}
+
+function openAddShopModal() {
+  clearShopForm();
+  shopModal.show();
+}
+
+function openEditShopModal(shop) {
   selectShop(shop.id);
   els.shopId.value = shop.id;
   els.shopName.value = shop.name || "";
@@ -173,12 +259,9 @@ function fillShopForm(shop) {
   els.shopApiKey.value = shop.apiKey || "";
   els.shopDescription.value = shop.description || "";
   els.shopIsActive.checked = shop.isActive !== false;
-}
-
-function clearShopForm() {
-  els.shopForm.reset();
-  els.shopId.value = "";
-  els.shopIsActive.checked = true;
+  els.shopModalTitle.textContent = "Cập nhật shop";
+  els.saveShopButton.textContent = "Lưu thay đổi";
+  shopModal.show();
 }
 
 function shopPayload() {
@@ -196,10 +279,20 @@ async function saveShop(event) {
   const id = els.shopId.value;
   const method = id ? "PATCH" : "POST";
   const url = id ? `/api/v1/shops/${id}` : "/api/v1/shops";
-  await requestJSON(url, { method, body: JSON.stringify(shopPayload()) });
-  clearShopForm();
-  await loadShops();
-  showToast(id ? "Đã cập nhật shop" : "Đã tạo shop");
+  const saved = await requestJSON(url, { method, body: JSON.stringify(shopPayload()) });
+
+  shopModal.hide();
+  if (id) {
+    state.shops = state.shops.map((shop) => (shop.id === id ? saved : shop));
+    state.selectedShopId = id;
+  } else {
+    state.shops = [saved, ...state.shops];
+    state.total += 1;
+    state.selectedShopId = saved.id;
+  }
+
+  renderShops();
+  showToast(id ? "Đã cập nhật shop" : "Đã thêm shop");
 }
 
 async function deleteShop(shop) {
@@ -209,10 +302,12 @@ async function deleteShop(shop) {
   }
 
   await requestJSON(`/api/v1/shops/${shop.id}`, { method: "DELETE" });
+  state.shops = state.shops.filter((item) => item.id !== shop.id);
+  state.total = Math.max(state.total - 1, 0);
   if (state.selectedShopId === shop.id) {
-    state.selectedShopId = "";
+    state.selectedShopId = state.shops[0]?.id || "";
   }
-  await loadShops();
+  renderShops();
   showToast("Đã xóa shop");
 }
 
@@ -271,6 +366,7 @@ async function loadOrders() {
   }
 
   els.loadOrdersButton.disabled = true;
+  els.loadOrdersButton.textContent = "Đang tải";
   try {
     const data = await requestJSON("/api/v1/orders", {
       method: "POST",
@@ -285,6 +381,7 @@ async function loadOrders() {
     showToast(error.message);
   } finally {
     els.loadOrdersButton.disabled = false;
+    els.loadOrdersButton.textContent = "Xem đơn hàng";
   }
 }
 
@@ -321,18 +418,16 @@ function escapeHTML(value) {
     .replaceAll("'", "&#039;");
 }
 
+els.addShopButton.addEventListener("click", openAddShopModal);
 els.shopForm.addEventListener("submit", (event) => {
   saveShop(event).catch((error) => showToast(error.message));
 });
-els.clearShopButton.addEventListener("click", clearShopForm);
-els.refreshShopsButton.addEventListener("click", () => loadShops().catch((error) => showToast(error.message)));
-els.prevShopPage.addEventListener("click", () => {
-  state.page -= 1;
-  loadShops().catch((error) => showToast(error.message));
-});
-els.nextShopPage.addEventListener("click", () => {
-  state.page += 1;
-  loadShops().catch((error) => showToast(error.message));
+els.refreshShopsButton.addEventListener("click", () => loadShops({ reset: true }).catch((error) => showToast(error.message)));
+els.shopList.addEventListener("scroll", () => {
+  const nearBottom = els.shopList.scrollTop + els.shopList.clientHeight >= els.shopList.scrollHeight - 80;
+  if (nearBottom) {
+    loadNextShopPage().catch((error) => showToast(error.message));
+  }
 });
 els.reportShopSelect.addEventListener("change", (event) => selectShop(event.target.value));
 els.reportForm.addEventListener("submit", downloadReport);
@@ -340,4 +435,4 @@ els.loadOrdersButton.addEventListener("click", loadOrders);
 
 els.dateFrom.value = daysAgoISO(7);
 els.dateTo.value = todayISO();
-loadShops().catch((error) => showToast(error.message));
+loadShops({ reset: true }).catch((error) => showToast(error.message));
