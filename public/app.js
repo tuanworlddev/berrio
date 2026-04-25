@@ -99,7 +99,7 @@ function showToast(message) {
 
 function setSidebarOpen(isOpen) {
   els.sidebar.classList.toggle("is-open", isOpen);
-  els.mobileBackdrop.classList.toggle("is-visible", isOpen);
+  els.mobileBackdrop.classList.toggle("is-visible", isOpen || els.jobsDrawer.classList.contains("is-open"));
 }
 
 function setJobsDrawerOpen(isOpen, { refresh = true } = {}) {
