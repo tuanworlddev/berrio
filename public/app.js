@@ -328,10 +328,14 @@ function isJobActive(job) {
 
 function upsertReportJob(job) {
   const index = state.reportJobs.findIndex((item) => item.id === job.id);
+  const nextJob = index >= 0 ? { ...state.reportJobs[index], ...job } : job;
   if (index >= 0) {
-    state.reportJobs[index] = { ...state.reportJobs[index], ...job };
+    state.reportJobs[index] = nextJob;
   } else {
-    state.reportJobs.unshift(job);
+    state.reportJobs.unshift(nextJob);
+  }
+  if (nextJob.id === state.activeReportJobId) {
+    updateReportProgress(nextJob);
   }
   renderReportJobs();
   renderShops();
@@ -353,17 +357,21 @@ function renderReportJobs() {
   }
 
   for (const job of state.reportJobs) {
+    const progress = Math.max(0, Math.min(Number(job.progress || 0), 100));
     const item = document.createElement("div");
     item.className = `job-item is-${job.status}`;
     item.innerHTML = `
       <div class="job-title">
         <span>${escapeHTML(job.shopName || "Shop")}</span>
-        ${isJobActive(job) ? '<span class="job-spinner"></span>' : ""}
+        <span class="job-status">
+          ${isJobActive(job) ? '<span class="job-spinner"></span>' : ""}
+          <strong>${progress}%</strong>
+        </span>
       </div>
       <div class="job-meta">${escapeHTML(job.dateFrom || "")} - ${escapeHTML(job.dateTo || "")}</div>
       <div class="job-step">${escapeHTML(job.error || job.currentStep || "Đang chờ xử lý")}</div>
       <div class="progress job-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100">
-        <div class="progress-bar" style="width: ${Math.max(0, Math.min(Number(job.progress || 0), 100))}%"></div>
+        <div class="progress-bar" style="width: ${progress}%"></div>
       </div>
     `;
 

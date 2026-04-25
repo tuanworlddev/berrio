@@ -520,6 +520,14 @@ body {
   font-weight: 900;
 }
 
+.job-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--primary-dark);
+  font-size: 0.8rem;
+}
+
 .job-meta,
 .job-step {
   color: var(--muted);
