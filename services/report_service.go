@@ -54,10 +54,10 @@ func GetReportDetails(ctx context.Context, apiKey string, dateFrom, dateTo time.
 			wait := retryAfter(res.Header.Get("Retry-After"), 65*time.Second)
 			_ = res.Body.Close()
 			rateLimitRetries++
-			if rateLimitRetries > 3 {
+			if rateLimitRetries > 1 {
 				return nil, fmt.Errorf("%w: retry later", ErrReportRateLimited)
 			}
-			fmt.Printf("Report API rate limited (429), retry %d/3 after %s\n", rateLimitRetries, wait)
+			fmt.Printf("Report API rate limited (429), retry %d/1 after %s\n", rateLimitRetries, wait)
 			timer := time.NewTimer(wait)
 			select {
 			case <-ctx.Done():
