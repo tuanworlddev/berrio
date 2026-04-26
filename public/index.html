@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <link rel="icon" href="/favicon.ico" data-next-head="">
+    <link rel="icon" href="favicon.ico" data-next-head="">
     <title>WB Financial Reports</title>
     <link
       href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css"
@@ -20,12 +20,13 @@
         <div class="sidebar-header">
           <div class="brand-mark">WB</div>
           <div class="min-w-0">
-            <h1 class="h4 fw-bold mb-1">WB Financial Reports</h1>
+            <h1 class="h4 fw-bold mb-1">WB Financial</h1>
+            <h1 class="h4 fw-bold mb-1">Reports</h1>
           </div>
         </div>
 
         <div class="d-grid gap-2 mt-4">
-          <button class="btn btn-primary btn-lg" id="addShopButton" type="button">
+          <button class="btn btn-primary" id="addShopButton" type="button">
             <span class="fw-bold me-1">+</span> Thêm Shop
           </button>
         </div>
@@ -106,16 +107,28 @@
         </section>
 
         <section class="row g-2">
-          <div class="col-12 col-md-6">
+          <div class="col-12 col-md-6 col-xl-3">
             <div class="metric">
               <span>Tổng đơn kỳ này</span>
               <strong id="totalOrders">0</strong>
             </div>
           </div>
-          <div class="col-12 col-md-6">
+          <div class="col-12 col-md-6 col-xl-3">
             <div class="metric">
               <span>Tổng đơn kỳ trước</span>
               <strong id="totalPrevOrders">0</strong>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="metric">
+              <span>Doanh thu kỳ này</span>
+              <strong id="totalOrdersRevenue">0</strong>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="metric">
+              <span>Doanh thu kỳ trước</span>
+              <strong id="totalPrevOrdersRevenue">0</strong>
             </div>
           </div>
         </section>
@@ -127,7 +140,7 @@
                 <p class="section-kicker">Đơn hàng</p>
                 <h3 class="h5 fw-bold mb-0">Bảng đơn hàng theo sản phẩm</h3>
               </div>
-              <span class="text-secondary small">Dữ liệu lấy theo khoảng ngày phía trên</span>
+              <span class="orders-status" id="ordersStatus">Chưa tải dữ liệu</span>
             </div>
             <div class="table-responsive">
               <table class="table align-middle mb-0">
@@ -138,6 +151,7 @@
                     <th>Đơn kỳ này</th>
                     <th>Đơn kỳ trước</th>
                     <th>Doanh thu RUB</th>
+                    <th>Doanh thu trước</th>
                   </tr>
                 </thead>
                 <tbody id="ordersTableBody"></tbody>

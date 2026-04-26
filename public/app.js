@@ -19,6 +19,8 @@ const state = {
   shops: [],
   tokenStatuses: new Map(),
   reportJobs: [],
+  deletedReportJobIds: new Set(),
+  ordersRequestKey: "",
   selectedShopId: "",
   tokenModalShopId: "",
   activeReportJobId: "",
@@ -74,9 +76,18 @@ const els = {
   loadOrdersButton: document.querySelector("#loadOrdersButton"),
   totalOrders: document.querySelector("#totalOrders"),
   totalPrevOrders: document.querySelector("#totalPrevOrders"),
+  totalOrdersRevenue: document.querySelector("#totalOrdersRevenue"),
+  totalPrevOrdersRevenue: document.querySelector("#totalPrevOrdersRevenue"),
+  ordersStatus: document.querySelector("#ordersStatus"),
   ordersTableBody: document.querySelector("#ordersTableBody"),
   toast: document.querySelector("#toast"),
 };
+
+for (const [name, element] of Object.entries(els)) {
+  if (!element) {
+    throw new Error(`Missing DOM element: ${name}`);
+  }
+}
 
 const shopModal = bootstrap.Modal.getOrCreateInstance(els.shopModal);
 const tokenModal = bootstrap.Modal.getOrCreateInstance(els.tokenModal);
@@ -152,6 +163,36 @@ async function requestJSON(url, options = {}) {
 
 function getSelectedShop() {
   return state.shops.find((shop) => shop.id === state.selectedShopId) || null;
+}
+
+function currentReportScope() {
+  const shop = getSelectedShop();
+  return {
+    shopId: shop?.id || "",
+    dateFrom: els.dateFrom.value,
+    dateTo: els.dateTo.value,
+    tax: Number(els.tax.value || 0.06),
+    discount: Number(els.discount.value || 3.5),
+  };
+}
+
+function numbersMatch(left, right) {
+  return Math.abs(Number(left) - Number(right)) < 0.0001;
+}
+
+function jobMatchesCurrentReport(job) {
+  const scope = currentReportScope();
+  if (!scope.shopId || job.shopId !== scope.shopId || job.dateFrom !== scope.dateFrom || job.dateTo !== scope.dateTo) {
+    return false;
+  }
+
+  const jobTax = job.tax ?? scope.tax;
+  const jobDiscount = job.discount ?? scope.discount;
+  return numbersMatch(jobTax, scope.tax) && numbersMatch(jobDiscount, scope.discount);
+}
+
+function findCurrentReportJob({ activeOnly = false } = {}) {
+  return state.reportJobs.find((job) => jobMatchesCurrentReport(job) && (!activeOnly || isJobActive(job))) || null;
 }
 
 function getLocalTokenStatus(shop) {
@@ -273,6 +314,8 @@ function renderShops() {
 function selectShop(id, { notifyTokenIssue = true } = {}) {
   state.selectedShopId = id;
   renderShops();
+  syncReportProgressWithSelection();
+  resetOrders();
   checkSelectedShopToken({ notifyTokenIssue }).catch((error) => showToast(error.message));
 }
 
@@ -333,6 +376,10 @@ function isJobActive(job) {
 }
 
 function upsertReportJob(job) {
+  if (state.deletedReportJobIds.has(job.id)) {
+    return;
+  }
+
   const index = state.reportJobs.findIndex((item) => item.id === job.id);
   const nextJob = index >= 0 ? { ...state.reportJobs[index], ...job } : job;
   if (index >= 0) {
@@ -345,6 +392,33 @@ function upsertReportJob(job) {
   }
   renderReportJobs();
   renderShops();
+  syncReportProgressWithSelection();
+}
+
+function resetReportProgress() {
+  state.activeReportJobId = "";
+  els.reportProgress.hidden = true;
+  els.reportProgressText.textContent = "Đang chuẩn bị báo cáo";
+  els.reportProgressPercent.textContent = "0%";
+  els.reportProgressBar.style.width = "0%";
+  els.reportProgressBar.setAttribute("aria-valuenow", "0");
+  els.downloadReportButton.disabled = false;
+  els.downloadReportButton.textContent = "Tải báo cáo Excel";
+}
+
+function syncReportProgressWithSelection() {
+  const matchingJob = findCurrentReportJob();
+  if (!matchingJob) {
+    resetReportProgress();
+    return;
+  }
+
+  state.activeReportJobId = matchingJob.id;
+  updateReportProgress(matchingJob);
+  els.downloadReportButton.disabled = isJobActive(matchingJob);
+  if (!isJobActive(matchingJob)) {
+    els.downloadReportButton.textContent = matchingJob.status === "done" ? "Tải file đã tạo" : "Tải báo cáo Excel";
+  }
 }
 
 function renderReportJobs() {
@@ -369,10 +443,12 @@ function renderReportJobs() {
     item.innerHTML = `
       <div class="job-title">
         <span>${escapeHTML(job.shopName || "Shop")}</span>
-        <span class="job-status">
-          ${isJobActive(job) ? '<span class="job-spinner"></span>' : ""}
-          <strong>${progress}%</strong>
-        </span>
+        <div class="job-title-actions">
+          <span class="job-status">
+            ${isJobActive(job) ? '<span class="job-spinner"></span>' : ""}
+            <strong>${progress}%</strong>
+          </span>
+        </div>
       </div>
       <div class="job-meta">${escapeHTML(job.dateFrom || "")} - ${escapeHTML(job.dateTo || "")}</div>
       <div class="job-step">${escapeHTML(job.error || job.currentStep || "Đang chờ xử lý")}</div>
@@ -380,6 +456,18 @@ function renderReportJobs() {
         <div class="progress-bar" style="width: ${progress}%"></div>
       </div>
     `;
+
+    const actions = item.querySelector(".job-title-actions");
+    const deleteButton = document.createElement("button");
+    deleteButton.className = "job-delete-button";
+    deleteButton.type = "button";
+    deleteButton.title = isJobActive(job) ? "Hủy job" : "Xóa job";
+    deleteButton.setAttribute("aria-label", isJobActive(job) ? "Hủy job" : "Xóa job");
+    deleteButton.innerHTML = iconTrash;
+    deleteButton.addEventListener("click", () => {
+      deleteReportJob(job).catch((error) => showToast(error.message));
+    });
+    actions.appendChild(deleteButton);
 
     if (job.status === "done" && job.downloadUrl) {
       const button = document.createElement("button");
@@ -402,17 +490,47 @@ async function loadReportJobs() {
   renderReportJobs();
   renderShops();
   await refreshRunningReportJobs();
+  syncReportProgressWithSelection();
 }
 
 async function refreshRunningReportJobs() {
   const runningJobs = state.reportJobs.filter(isJobActive);
   for (const job of runningJobs) {
+    if (state.deletedReportJobIds.has(job.id)) {
+      continue;
+    }
     try {
       const latest = await requestJSON(`/api/v1/reports/jobs/${job.id}`);
       upsertReportJob({ ...job, ...latest });
     } catch (error) {
       upsertReportJob({ ...job, status: "failed", error: "Không thể cập nhật trạng thái job" });
     }
+  }
+}
+
+async function deleteReportJob(job) {
+  const message = isJobActive(job) ? "Hủy job báo cáo đang chạy?" : "Xóa job báo cáo?";
+  if (!window.confirm(message)) {
+    return;
+  }
+
+  state.deletedReportJobIds.add(job.id);
+  state.reportJobs = state.reportJobs.filter((item) => item.id !== job.id);
+  if (state.activeReportJobId === job.id) {
+    state.activeReportJobId = "";
+    syncReportProgressWithSelection();
+    els.reportProgressText.textContent = "Đã hủy job báo cáo";
+  }
+  renderReportJobs();
+  renderShops();
+
+  try {
+    await requestJSON(`/api/v1/reports/jobs/${job.id}`, { method: "DELETE" });
+    showToast(isJobActive(job) ? "Đã hủy job" : "Đã xóa job");
+  } catch (error) {
+    state.deletedReportJobIds.delete(job.id);
+    upsertReportJob(job);
+    throw error;
   }
 }
 
@@ -501,6 +619,30 @@ async function downloadReport(event) {
     return;
   }
   const shop = getSelectedShop();
+  const existingJob = findCurrentReportJob();
+  if (existingJob) {
+    state.activeReportJobId = existingJob.id;
+    updateReportProgress(existingJob);
+
+    if (isJobActive(existingJob)) {
+      showToast("Job báo cáo này đang chạy");
+      els.downloadReportButton.disabled = true;
+      try {
+        await waitForReportJob(existingJob);
+      } catch (error) {
+        showToast(error.message);
+      } finally {
+        syncReportProgressWithSelection();
+      }
+      return;
+    }
+
+    if (existingJob.status === "done" && existingJob.downloadUrl) {
+      await downloadReportJob(existingJob.downloadUrl, existingJob);
+      showToast("Đã tải báo cáo");
+      return;
+    }
+  }
 
   els.downloadReportButton.disabled = true;
   els.downloadReportButton.textContent = "Đang tạo job";
@@ -533,8 +675,7 @@ async function downloadReport(event) {
   } catch (error) {
     showToast(error.message);
   } finally {
-    els.downloadReportButton.disabled = false;
-    els.downloadReportButton.textContent = "Tải báo cáo Excel";
+    syncReportProgressWithSelection();
   }
 }
 
@@ -548,17 +689,31 @@ function updateReportProgress(job) {
   els.downloadReportButton.textContent = progress > 0 ? `Đang xử lý ${progress}%` : "Đang xử lý";
 }
 
+function isMainReportJob(job) {
+  return job.id === state.activeReportJobId && jobMatchesCurrentReport(job);
+}
+
 async function waitForReportJob(reportJob) {
   let job = await requestJSON(`/api/v1/reports/jobs/${reportJob.id}`);
   job = { ...reportJob, ...job };
   upsertReportJob(job);
-  updateReportProgress(job);
+  if (isMainReportJob(job)) {
+    updateReportProgress(job);
+  }
 
   while (job.status === "queued" || job.status === "running") {
     await sleep(JOB_POLL_INTERVAL_MS);
+    if (state.deletedReportJobIds.has(job.id)) {
+      throw new Error("Đã hủy job báo cáo");
+    }
+    if (!isMainReportJob(job)) {
+      throw new Error("Job vẫn đang chạy trong Reports");
+    }
     job = { ...job, ...(await requestJSON(`/api/v1/reports/jobs/${job.id}`)) };
     upsertReportJob(job);
-    updateReportProgress(job);
+    if (isMainReportJob(job)) {
+      updateReportProgress(job);
+    }
   }
 
   if (job.status === "failed") {
@@ -568,7 +723,9 @@ async function waitForReportJob(reportJob) {
     throw new Error("Báo cáo chưa sẵn sàng");
   }
 
-  await downloadReportJob(job.downloadUrl, job);
+  if (isMainReportJob(job)) {
+    await downloadReportJob(job.downloadUrl, job);
+  }
 }
 
 async function downloadReportJob(downloadUrl, job = {}) {
@@ -601,14 +758,41 @@ function sanitizeFileName(value) {
     .replace(/^[. ]+|[. ]+$/g, "") || "shop";
 }
 
+function currentOrdersKey() {
+  const shop = getSelectedShop();
+  return [shop?.id || "", els.dateFrom.value, els.dateTo.value].join("|");
+}
+
+function formatNumber(value) {
+  return new Intl.NumberFormat("vi-VN").format(Number(value || 0));
+}
+
+function setOrdersStatus(message, stateName = "") {
+  els.ordersStatus.textContent = message;
+  els.ordersStatus.className = `orders-status${stateName ? ` is-${stateName}` : ""}`;
+}
+
+function resetOrders() {
+  state.ordersRequestKey = "";
+  els.totalOrders.textContent = "0";
+  els.totalPrevOrders.textContent = "0";
+  els.totalOrdersRevenue.textContent = "0";
+  els.totalPrevOrdersRevenue.textContent = "0";
+  els.ordersTableBody.innerHTML = '<tr><td class="empty-row" colspan="6">Chưa có dữ liệu</td></tr>';
+  setOrdersStatus("Chưa tải dữ liệu");
+}
+
 async function loadOrders() {
   if (!canUseSelectedShop()) {
     return;
   }
   const shop = getSelectedShop();
+  const requestKey = currentOrdersKey();
+  state.ordersRequestKey = requestKey;
 
   els.loadOrdersButton.disabled = true;
   els.loadOrdersButton.textContent = "Đang tải";
+  setOrdersStatus("Đang tải dữ liệu", "loading");
   try {
     const data = await requestJSON("/api/v1/orders", {
       method: "POST",
@@ -618,34 +802,48 @@ async function loadOrders() {
         dateTo: els.dateTo.value,
       }),
     });
+    if (state.ordersRequestKey !== requestKey) {
+      return;
+    }
     renderOrders(data);
   } catch (error) {
-    showToast(error.message);
+    if (state.ordersRequestKey === requestKey) {
+      setOrdersStatus("Không thể tải dữ liệu", "error");
+      showToast(error.message);
+    }
   } finally {
-    els.loadOrdersButton.disabled = false;
-    els.loadOrdersButton.textContent = "Xem đơn hàng";
+    if (state.ordersRequestKey === requestKey) {
+      els.loadOrdersButton.disabled = false;
+      els.loadOrdersButton.textContent = "Xem đơn hàng";
+    }
   }
 }
 
 function renderOrders(data) {
-  els.totalOrders.textContent = String(data.totalOrders || 0);
-  els.totalPrevOrders.textContent = String(data.totalPrevOrders || 0);
+  els.totalOrders.textContent = formatNumber(data.totalOrders);
+  els.totalPrevOrders.textContent = formatNumber(data.totalPrevOrders);
+  els.totalOrdersRevenue.textContent = `${formatNumber(data.totalOrdersSumRub)} RUB`;
+  els.totalPrevOrdersRevenue.textContent = `${formatNumber(data.totalPrevOrdersSumRub)} RUB`;
   els.ordersTableBody.innerHTML = "";
 
   const rows = data.chartData || [];
   if (rows.length === 0) {
-    els.ordersTableBody.innerHTML = '<tr><td class="empty-row" colspan="5">Không có dữ liệu</td></tr>';
+    setOrdersStatus("Không có sản phẩm có đơn trong khoảng ngày này", "warning");
+    els.ordersTableBody.innerHTML = '<tr><td class="empty-row" colspan="6">Không có dữ liệu</td></tr>';
     return;
   }
+
+  setOrdersStatus(`Đã tải ${formatNumber(rows.length)} sản phẩm qua ${formatNumber(data.pagesLoaded || 1)} page`, data.hasMorePages ? "warning" : "ready");
 
   for (const row of rows) {
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td>${row.nmID}</td>
       <td>${escapeHTML(row.vendorCode || "")}</td>
-      <td>${row.ordersCount || 0}</td>
-      <td>${row.prevOrdersCount || 0}</td>
-      <td>${row.ordersSumRub || 0}</td>
+      <td>${formatNumber(row.ordersCount)}</td>
+      <td>${formatNumber(row.prevOrdersCount)}</td>
+      <td>${formatNumber(row.ordersSumRub)}</td>
+      <td>${formatNumber(row.prevOrdersSumRub)}</td>
     `;
     els.ordersTableBody.appendChild(tr);
   }
@@ -711,9 +909,19 @@ els.updateTokenButton.addEventListener("click", () => {
 });
 els.reportForm.addEventListener("submit", downloadReport);
 els.loadOrdersButton.addEventListener("click", loadOrders);
+for (const input of [els.dateFrom, els.dateTo]) {
+  input.addEventListener("change", () => {
+    syncReportProgressWithSelection();
+    resetOrders();
+  });
+}
+for (const input of [els.tax, els.discount]) {
+  input.addEventListener("change", syncReportProgressWithSelection);
+}
 
 els.dateFrom.value = daysAgoISO(7);
 els.dateTo.value = todayISO();
+resetOrders();
 updateOverlayState();
 loadShops({ reset: true })
   .then(() => checkSelectedShopToken({ notifyTokenIssue: false }))

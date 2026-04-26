@@ -56,6 +56,7 @@ func main() {
 		v1.GET("/reports/jobs", controllers.ListReportJobs)
 		v1.POST("/reports/jobs", controllers.CreateReportJob)
 		v1.GET("/reports/jobs/:id", controllers.GetReportJob)
+		v1.DELETE("/reports/jobs/:id", controllers.DeleteReportJob)
 		v1.GET("/reports/jobs/:id/download", controllers.DownloadReportJob)
 		v1.POST("/orders", controllers.GetOrdersReport)
 

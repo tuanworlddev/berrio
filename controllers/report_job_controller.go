@@ -48,6 +48,7 @@ type reportJob struct {
 	dateTo   time.Time
 	cacheKey string
 	filePath string
+	cancel   context.CancelFunc
 }
 
 type reportChunk struct {
@@ -116,6 +117,19 @@ func GetReportJob(c *gin.Context) {
 	c.JSON(http.StatusOK, reportJobResponse(job))
 }
 
+func DeleteReportJob(c *gin.Context) {
+	job, ok := reportJobs.delete(c.Param("id"))
+	if !ok {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy báo cáo"})
+		return
+	}
+	if job.cancel != nil {
+		job.cancel()
+	}
+
+	c.Status(http.StatusNoContent)
+}
+
 func DownloadReportJob(c *gin.Context) {
 	job, ok := reportJobs.get(c.Param("id"))
 	if !ok {
@@ -138,6 +152,7 @@ func runReportJob(jobID string, chunks []reportChunk) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), reportJobTimeout)
 	defer cancel()
+	reportJobs.setCancel(jobID, cancel)
 
 	reportJobs.update(jobID, func(job *reportJob) {
 		job.Status = "running"
@@ -269,6 +284,8 @@ func reportJobResponse(job *reportJob) gin.H {
 		"shopName":    job.req.ShopName,
 		"dateFrom":    job.req.DateFrom,
 		"dateTo":      job.req.DateTo,
+		"tax":         job.req.Tax,
+		"discount":    job.req.Discount,
 	}
 }
 
@@ -318,6 +335,23 @@ func (store *reportJobStore) findReusable(cacheKey string) (*reportJob, bool) {
 		}
 	}
 	return nil, false
+}
+
+func (store *reportJobStore) delete(id string) (*reportJob, bool) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	job, ok := store.items[id]
+	if !ok {
+		return nil, false
+	}
+	delete(store.items, id)
+	return cloneReportJob(job), true
+}
+
+func (store *reportJobStore) setCancel(id string, cancel context.CancelFunc) {
+	store.update(id, func(job *reportJob) {
+		job.cancel = cancel
+	})
 }
 
 func (store *reportJobStore) update(id string, mutate func(*reportJob)) {
