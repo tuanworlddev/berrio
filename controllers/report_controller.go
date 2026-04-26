@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -17,17 +19,21 @@ import (
 	"omnituan.online/services"
 )
 
-const reportTimeout = 8 * time.Minute
+const (
+	reportTimeout  = 8 * time.Minute
+	reportCacheTTL = 24 * time.Hour
+)
 
 var reportCache sync.Map
 
 type cachedReport struct {
-	data      []byte
+	filePath  string
 	expiresAt time.Time
 }
 
 type ReportRequest struct {
 	APIKey   string  `form:"apiKey" json:"apiKey" binding:"required"`
+	ShopID   string  `form:"shopId" json:"shopId"`
 	ShopName string  `form:"shopName" json:"shopName"`
 	DateFrom string  `form:"dateFrom" json:"dateFrom" binding:"required"`
 	DateTo   string  `form:"dateTo" json:"dateTo" binding:"required"`
@@ -51,14 +57,15 @@ func HandleReportRequest(c *gin.Context) {
 		return
 	}
 
+	cleanupReportCache(time.Now())
 	cacheKey := reportCacheKey(req)
 	if cached, ok := reportCache.Load(cacheKey); ok {
 		item := cached.(cachedReport)
-		if time.Now().Before(item.expiresAt) {
-			writeReportExcel(c, item.data, reportFileName(req))
+		if time.Now().Before(item.expiresAt) && fileExists(item.filePath) {
+			writeReportExcelFile(c, item.filePath, reportFileName(req))
 			return
 		}
-		reportCache.Delete(cacheKey)
+		deleteReportCache(cacheKey, item)
 	}
 
 	ctx, cancel := context.WithTimeout(c.Request.Context(), reportTimeout)
@@ -76,7 +83,10 @@ func HandleReportRequest(c *gin.Context) {
 		return
 	}
 
-	storeReportCache(cacheKey, data)
+	if _, err := storeReportCache(cacheKey, data); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "KhÃ´ng thá»ƒ lÆ°u file bÃ¡o cÃ¡o"})
+		return
+	}
 	writeReportExcel(c, data, reportFileName(req))
 }
 
@@ -138,10 +148,69 @@ func writeReportExcel(c *gin.Context, data []byte, filename string) {
 	c.Data(http.StatusOK, contentType, data)
 }
 
-func storeReportCache(cacheKey string, data []byte) {
+func writeReportExcelFile(c *gin.Context, filePath string, filename string) {
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.FileAttachment(filePath, filename)
+}
+
+func storeReportCache(cacheKey string, data []byte) (string, error) {
+	cleanupReportCache(time.Now())
+
+	cacheDir, err := reportCacheDir()
+	if err != nil {
+		return "", err
+	}
+
+	filePath := filepath.Join(cacheDir, cacheKey+".xlsx")
+	if old, ok := reportCache.Load(cacheKey); ok {
+		oldItem := old.(cachedReport)
+		reportCache.Delete(cacheKey)
+		if oldItem.filePath != "" && oldItem.filePath != filePath {
+			_ = os.Remove(oldItem.filePath)
+		}
+	}
+
+	if err := os.WriteFile(filePath, data, 0600); err != nil {
+		return "", err
+	}
+
 	reportCache.Store(cacheKey, cachedReport{
-		data:      append([]byte(nil), data...),
-		expiresAt: time.Now().Add(10 * time.Minute),
+		filePath:  filePath,
+		expiresAt: time.Now().Add(reportCacheTTL),
+	})
+	return filePath, nil
+}
+
+func deleteReportCache(cacheKey string, item cachedReport) {
+	reportCache.Delete(cacheKey)
+	if item.filePath != "" {
+		_ = os.Remove(item.filePath)
+	}
+}
+
+func reportCacheDir() (string, error) {
+	dir := filepath.Join(os.TempDir(), "berrio-report-cache")
+	if err := os.MkdirAll(dir, 0700); err != nil {
+		return "", err
+	}
+	return dir, nil
+}
+
+func fileExists(path string) bool {
+	if path == "" {
+		return false
+	}
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+func cleanupReportCache(now time.Time) {
+	reportCache.Range(func(key, value any) bool {
+		item := value.(cachedReport)
+		if now.After(item.expiresAt) || !fileExists(item.filePath) {
+			deleteReportCache(key.(string), item)
+		}
+		return true
 	})
 }
 

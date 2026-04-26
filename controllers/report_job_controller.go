@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -16,11 +17,13 @@ import (
 )
 
 const (
-	reportJobTTL     = 2 * time.Hour
+	reportJobTTL     = 24 * time.Hour
 	reportJobTimeout = 2 * time.Hour
+	maxReportJobs    = 5
 )
 
 var reportJobs = &reportJobStore{items: make(map[string]*reportJob)}
+var reportJobWorkers = make(chan struct{}, maxReportJobs)
 
 type reportJobStore struct {
 	mu    sync.RWMutex
@@ -44,7 +47,7 @@ type reportJob struct {
 	dateFrom time.Time
 	dateTo   time.Time
 	cacheKey string
-	data     []byte
+	filePath string
 }
 
 type reportChunk struct {
@@ -59,22 +62,28 @@ func CreateReportJob(c *gin.Context) {
 		return
 	}
 
+	cleanupReportCache(time.Now())
 	cacheKey := reportCacheKey(req)
 	if cached, ok := reportCache.Load(cacheKey); ok {
 		item := cached.(cachedReport)
-		if time.Now().Before(item.expiresAt) {
+		if time.Now().Before(item.expiresAt) && fileExists(item.filePath) {
 			job := newReportJob(req, dateFrom, dateTo, cacheKey, 1)
 			job.Status = "done"
 			job.Progress = 100
 			job.DoneChunks = 1
-			job.CurrentStep = "Báo cáo đã sẵn sàng từ cache"
+			job.CurrentStep = "Báo cáo đã sẵn sàng"
 			job.DownloadURL = fmt.Sprintf("/api/v1/reports/jobs/%s/download", job.ID)
-			job.data = append([]byte(nil), item.data...)
+			job.filePath = item.filePath
 			reportJobs.save(job)
 			c.JSON(http.StatusAccepted, reportJobResponse(job))
 			return
 		}
-		reportCache.Delete(cacheKey)
+		deleteReportCache(cacheKey, item)
+	}
+
+	if existing, ok := reportJobs.findReusable(cacheKey); ok {
+		c.JSON(http.StatusAccepted, reportJobResponse(existing))
+		return
 	}
 
 	chunks := splitDateRangeByWeek(dateFrom, dateTo)
@@ -86,10 +95,21 @@ func CreateReportJob(c *gin.Context) {
 	c.JSON(http.StatusAccepted, reportJobResponse(job))
 }
 
+func ListReportJobs(c *gin.Context) {
+	cleanupReportCache(time.Now())
+	jobs := reportJobs.list()
+	items := make([]gin.H, 0, len(jobs))
+	for _, job := range jobs {
+		items = append(items, reportJobResponse(job))
+	}
+
+	c.JSON(http.StatusOK, gin.H{"items": items})
+}
+
 func GetReportJob(c *gin.Context) {
 	job, ok := reportJobs.get(c.Param("id"))
 	if !ok {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy job báo cáo"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy báo cáo"})
 		return
 	}
 
@@ -99,15 +119,15 @@ func GetReportJob(c *gin.Context) {
 func DownloadReportJob(c *gin.Context) {
 	job, ok := reportJobs.get(c.Param("id"))
 	if !ok {
-		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy job báo cáo"})
+		c.JSON(http.StatusNotFound, gin.H{"error": "Không tìm thấy báo cáo"})
 		return
 	}
-	if job.Status != "done" || len(job.data) == 0 {
+	if job.Status != "done" || !fileExists(job.filePath) {
 		c.JSON(http.StatusConflict, gin.H{"error": "Báo cáo chưa sẵn sàng"})
 		return
 	}
 
-	writeReportExcel(c, job.data, reportFileName(job.req))
+	writeReportExcelFile(c, job.filePath, reportFileName(job.req))
 }
 
 func runReportJob(jobID string, chunks []reportChunk) {
@@ -123,6 +143,14 @@ func runReportJob(jobID string, chunks []reportChunk) {
 		job.Status = "running"
 		job.CurrentStep = "Đang lấy dữ liệu từ Wildberries"
 	})
+
+	select {
+	case reportJobWorkers <- struct{}{}:
+		defer func() { <-reportJobWorkers }()
+	case <-ctx.Done():
+		reportJobs.fail(jobID, reportJobErrorMessage(ctx.Err()))
+		return
+	}
 
 	reports := make([]models.ReportDetails, 0)
 	for index, chunk := range chunks {
@@ -152,13 +180,17 @@ func runReportJob(jobID string, chunks []reportChunk) {
 		return
 	}
 
-	storeReportCache(job.cacheKey, data)
+	filePath, err := storeReportCache(job.cacheKey, data)
+	if err != nil {
+		reportJobs.fail(jobID, "KhÃ´ng thá»ƒ lÆ°u file bÃ¡o cÃ¡o")
+		return
+	}
 	reportJobs.update(jobID, func(job *reportJob) {
 		job.Status = "done"
 		job.Progress = 100
 		job.CurrentStep = "Báo cáo đã sẵn sàng"
 		job.DownloadURL = fmt.Sprintf("/api/v1/reports/jobs/%s/download", job.ID)
-		job.data = append([]byte(nil), data...)
+		job.filePath = filePath
 	})
 }
 
@@ -170,7 +202,7 @@ func newReportJob(req ReportRequest, dateFrom, dateTo time.Time, cacheKey string
 		Progress:    0,
 		TotalChunks: totalChunks,
 		DoneChunks:  0,
-		CurrentStep: "Đang xếp hàng tạo báo cáo",
+		CurrentStep: "Đang chờ tạo báo cáo",
 		CreatedAt:   now,
 		UpdatedAt:   now,
 		ExpiresAt:   now.Add(reportJobTTL),
@@ -212,9 +244,9 @@ func progressPercent(done, total int) int {
 func reportJobErrorMessage(err error) string {
 	switch {
 	case errors.Is(err, services.ErrReportRateLimited):
-		return "Wildberries đang giới hạn tần suất lấy báo cáo. Hệ thống đã chia theo tuần, vui lòng thử lại sau ít phút."
+		return "Wildberries đang giới hạn tần suất lấy báo cáo. Vui lòng thử lại sau ít phút."
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
-		return "Job lấy báo cáo quá lâu hoặc đã bị hủy."
+		return "Lấy báo cáo quá lâu hoặc đã bị hủy."
 	default:
 		return fmt.Sprintf("Không thể lấy báo cáo: %v", err)
 	}
@@ -233,6 +265,10 @@ func reportJobResponse(job *reportJob) gin.H {
 		"createdAt":   job.CreatedAt,
 		"updatedAt":   job.UpdatedAt,
 		"expiresAt":   job.ExpiresAt,
+		"shopId":      job.req.ShopID,
+		"shopName":    job.req.ShopName,
+		"dateFrom":    job.req.DateFrom,
+		"dateTo":      job.req.DateTo,
 	}
 }
 
@@ -251,6 +287,37 @@ func (store *reportJobStore) get(id string) (*reportJob, bool) {
 		return nil, false
 	}
 	return cloneReportJob(job), true
+}
+
+func (store *reportJobStore) list() []*reportJob {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	store.cleanupLocked(time.Now())
+
+	jobs := make([]*reportJob, 0, len(store.items))
+	for _, job := range store.items {
+		jobs = append(jobs, cloneReportJob(job))
+	}
+	sort.Slice(jobs, func(i, j int) bool {
+		return jobs[i].CreatedAt.After(jobs[j].CreatedAt)
+	})
+	return jobs
+}
+
+func (store *reportJobStore) findReusable(cacheKey string) (*reportJob, bool) {
+	store.mu.Lock()
+	defer store.mu.Unlock()
+	store.cleanupLocked(time.Now())
+
+	for _, job := range store.items {
+		if job.cacheKey != cacheKey {
+			continue
+		}
+		if job.Status == "queued" || job.Status == "running" || (job.Status == "done" && fileExists(job.filePath)) {
+			return cloneReportJob(job), true
+		}
+	}
+	return nil, false
 }
 
 func (store *reportJobStore) update(id string, mutate func(*reportJob)) {
@@ -282,8 +349,5 @@ func (store *reportJobStore) cleanupLocked(now time.Time) {
 
 func cloneReportJob(job *reportJob) *reportJob {
 	clone := *job
-	if len(job.data) > 0 {
-		clone.data = append([]byte(nil), job.data...)
-	}
 	return &clone
 }

@@ -12,6 +12,8 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-color: rgba(124, 58, 237, 0.36) transparent;
+  scrollbar-width: thin;
 }
 
 body {
@@ -24,12 +26,44 @@ body {
   font-size: 0.92rem;
 }
 
+body.is-overlay-open {
+  overflow: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: rgba(124, 58, 237, 0.32);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(124, 58, 237, 0.5);
+}
+
 .btn {
   --bs-btn-padding-y: 0.45rem;
   --bs-btn-padding-x: 0.78rem;
   --bs-btn-font-size: 0.9rem;
   --bs-btn-border-radius: 0.65rem;
+  cursor: pointer;
   font-weight: 700;
+}
+
+.btn:focus-visible,
+.icon-button:focus-visible,
+.jobs-button:focus-visible,
+.toolbar-icon-button:focus-visible,
+.shop-select-button:focus-visible {
+  outline: 3px solid rgba(124, 58, 237, 0.28);
+  outline-offset: 2px;
 }
 
 .btn-lg {
@@ -137,7 +171,7 @@ body {
 
 .shop-item {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr);
   gap: 0.55rem;
   border: 1px solid var(--line);
   border-radius: 0.75rem;
@@ -165,17 +199,24 @@ body {
   background: #fff1f2;
 }
 
-.shop-item.is-token-invalid .shop-name,
-.shop-item.is-token-invalid .shop-meta {
+.shop-item.is-token-invalid .shop-name {
   color: #b91c1c;
 }
 
 .shop-select-button {
+  display: block;
+  width: 100%;
   min-width: 0;
   border: 0;
+  border-radius: 0.55rem;
   background: transparent;
   padding: 0;
   text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.shop-select-button:focus:not(:focus-visible) {
+  outline: 0;
 }
 
 .shop-name {
@@ -187,34 +228,6 @@ body {
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
-}
-
-.shop-meta {
-  margin-top: 0.1rem;
-  overflow: hidden;
-  color: var(--muted);
-  font-size: 0.82rem;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.shop-actions {
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
-}
-
-.shop-actions .btn {
-  display: grid;
-  width: 1.85rem;
-  height: 1.85rem;
-  padding: 0;
-  place-items: center;
-}
-
-.shop-actions svg {
-  width: 1rem;
-  height: 1rem;
 }
 
 .shop-loading {
@@ -379,6 +392,68 @@ body {
   border-radius: 0.75rem;
   background: rgba(255, 255, 255, 0.9);
   padding: 0.55rem;
+}
+
+.current-shop-heading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  gap: 0.55rem;
+}
+
+.current-shop-heading strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.current-shop-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex: 0 0 auto;
+}
+
+.toolbar-icon-button {
+  display: grid;
+  width: 2.05rem;
+  height: 2.05rem;
+  border: 1px solid var(--line);
+  border-radius: 0.65rem;
+  background: #fff;
+  color: var(--primary);
+  place-items: center;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease,
+    transform 160ms ease;
+}
+
+.toolbar-icon-button:hover:not(:disabled) {
+  border-color: rgba(124, 58, 237, 0.5);
+  background: var(--primary-soft);
+  transform: translateY(-1px);
+}
+
+.toolbar-icon-button.is-danger {
+  color: var(--danger);
+}
+
+.toolbar-icon-button.is-danger:hover:not(:disabled) {
+  border-color: rgba(220, 38, 38, 0.45);
+  background: #fff1f2;
+}
+
+.toolbar-icon-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.42;
+}
+
+.toolbar-icon-button svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .icon-button,
@@ -622,14 +697,14 @@ body {
   .sidebar {
     position: fixed;
     top: 0;
-    right: 0;
+    left: 0;
     z-index: 1040;
     width: min(22rem, 88vw);
     height: 100vh;
-    border-right: 0;
-    border-left: 1px solid var(--line);
-    box-shadow: -22px 0 48px rgba(38, 22, 67, 0.16);
-    transform: translateX(105%);
+    border-right: 1px solid var(--line);
+    border-left: 0;
+    box-shadow: 22px 0 48px rgba(38, 22, 67, 0.16);
+    transform: translateX(-105%);
   }
 
   .sidebar.is-open {
@@ -665,11 +740,8 @@ body {
     padding: 0.75rem;
   }
 
-  .shop-item {
-    grid-template-columns: 1fr;
-  }
-
-  .shop-actions {
-    justify-content: flex-end;
+  .current-shop-heading {
+    justify-content: flex-start;
+    gap: 0.4rem;
   }
 }

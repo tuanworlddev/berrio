@@ -41,6 +41,8 @@ const els = {
   jobsList: document.querySelector("#jobsList"),
   closeJobsButton: document.querySelector("#closeJobsButton"),
   currentShopTitle: document.querySelector("#currentShopTitle"),
+  editSelectedShopButton: document.querySelector("#editSelectedShopButton"),
+  deleteSelectedShopButton: document.querySelector("#deleteSelectedShopButton"),
   addShopButton: document.querySelector("#addShopButton"),
   shopForm: document.querySelector("#shopForm"),
   shopModal: document.querySelector("#shopModal"),
@@ -78,6 +80,8 @@ const els = {
 
 const shopModal = bootstrap.Modal.getOrCreateInstance(els.shopModal);
 const tokenModal = bootstrap.Modal.getOrCreateInstance(els.tokenModal);
+els.editSelectedShopButton.innerHTML = iconEdit;
+els.deleteSelectedShopButton.innerHTML = iconTrash;
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -98,16 +102,33 @@ function showToast(message) {
   }, 2800);
 }
 
+function updateOverlayState() {
+  const isSidebarOpen = els.sidebar.classList.contains("is-open");
+  const isJobsOpen = els.jobsDrawer.classList.contains("is-open");
+  const hasOverlay = isSidebarOpen || isJobsOpen;
+
+  els.mobileBackdrop.classList.toggle("is-visible", hasOverlay);
+  document.body.classList.toggle("is-overlay-open", hasOverlay);
+  els.menuButton.setAttribute("aria-expanded", String(isSidebarOpen));
+  els.jobsButton.setAttribute("aria-expanded", String(isJobsOpen));
+}
+
 function setSidebarOpen(isOpen) {
+  if (isOpen) {
+    els.jobsDrawer.classList.remove("is-open");
+  }
   els.sidebar.classList.toggle("is-open", isOpen);
-  els.mobileBackdrop.classList.toggle("is-visible", isOpen || els.jobsDrawer.classList.contains("is-open"));
+  updateOverlayState();
 }
 
 function setJobsDrawerOpen(isOpen, { refresh = true } = {}) {
+  if (isOpen) {
+    els.sidebar.classList.remove("is-open");
+  }
   els.jobsDrawer.classList.toggle("is-open", isOpen);
-  els.mobileBackdrop.classList.toggle("is-visible", isOpen || els.sidebar.classList.contains("is-open"));
+  updateOverlayState();
   if (isOpen && refresh) {
-    refreshRunningReportJobs().catch((error) => showToast(error.message));
+    loadReportJobs().catch((error) => showToast(error.message));
   }
 }
 
@@ -213,7 +234,10 @@ function renderShops() {
   els.shopCount.textContent = `(${state.total})`;
   els.shopLoadedLabel.textContent = `${state.shops.length} đã tải`;
   els.shopList.innerHTML = "";
-  els.currentShopTitle.textContent = getSelectedShop()?.name || "Chưa chọn shop";
+  const selectedShop = getSelectedShop();
+  els.currentShopTitle.textContent = selectedShop?.name || "Chưa chọn shop";
+  els.editSelectedShopButton.disabled = !selectedShop;
+  els.deleteSelectedShopButton.disabled = !selectedShop;
 
   if (state.shops.length === 0) {
     const empty = document.createElement("div");
@@ -235,31 +259,12 @@ function renderShops() {
       <div class="shop-name">${escapeHTML(shop.name)}${hasRunningJob ? '<span class="shop-job-spinner" title="Đang có job báo cáo"></span>' : ""}</div>
     `;
     info.addEventListener("click", () => {
+      info.blur();
       selectShop(shop.id);
       setSidebarOpen(false);
     });
 
-    const actions = document.createElement("div");
-    actions.className = "shop-actions";
-
-    const edit = document.createElement("button");
-    edit.className = "btn btn-outline-primary";
-    edit.type = "button";
-    edit.title = "Sửa shop";
-    edit.setAttribute("aria-label", "Sửa shop");
-    edit.innerHTML = iconEdit;
-    edit.addEventListener("click", () => openEditShopModal(shop));
-
-    const del = document.createElement("button");
-    del.className = "btn btn-outline-danger";
-    del.type = "button";
-    del.title = "Xóa shop";
-    del.setAttribute("aria-label", "Xóa shop");
-    del.innerHTML = iconTrash;
-    del.addEventListener("click", () => deleteShop(shop));
-
-    actions.append(edit, del);
-    item.append(info, actions);
+    item.append(info);
     els.shopList.appendChild(item);
   }
 
@@ -391,6 +396,14 @@ function renderReportJobs() {
   }
 }
 
+async function loadReportJobs() {
+  const data = await requestJSON("/api/v1/reports/jobs");
+  state.reportJobs = data.items || [];
+  renderReportJobs();
+  renderShops();
+  await refreshRunningReportJobs();
+}
+
 async function refreshRunningReportJobs() {
   const runningJobs = state.reportJobs.filter(isJobActive);
   for (const job of runningJobs) {
@@ -504,6 +517,7 @@ async function downloadReport(event) {
       method: "POST",
       body: JSON.stringify({
         apiKey: shop.apiKey,
+        shopId: shop.id,
         shopName: shop.name,
         dateFrom: els.dateFrom.value,
         dateTo: els.dateTo.value,
@@ -646,13 +660,38 @@ function escapeHTML(value) {
     .replaceAll("'", "&#039;");
 }
 
-els.addShopButton.addEventListener("click", openAddShopModal);
+els.addShopButton.addEventListener("click", () => {
+  setSidebarOpen(false);
+  openAddShopModal();
+});
+els.editSelectedShopButton.addEventListener("click", () => {
+  const shop = getSelectedShop();
+  if (!shop) {
+    showToast("Hãy chọn shop trước");
+    return;
+  }
+  openEditShopModal(shop);
+});
+els.deleteSelectedShopButton.addEventListener("click", () => {
+  const shop = getSelectedShop();
+  if (!shop) {
+    showToast("Hãy chọn shop trước");
+    return;
+  }
+  deleteShop(shop).catch((error) => showToast(error.message));
+});
 els.menuButton.addEventListener("click", () => setSidebarOpen(true));
 els.jobsButton.addEventListener("click", () => setJobsDrawerOpen(true));
 els.closeJobsButton.addEventListener("click", () => setJobsDrawerOpen(false));
 els.mobileBackdrop.addEventListener("click", () => {
   setSidebarOpen(false);
   setJobsDrawerOpen(false);
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    setSidebarOpen(false);
+    setJobsDrawerOpen(false);
+  }
 });
 els.shopForm.addEventListener("submit", (event) => {
   saveShop(event).catch((error) => showToast(error.message));
@@ -675,7 +714,9 @@ els.loadOrdersButton.addEventListener("click", loadOrders);
 
 els.dateFrom.value = daysAgoISO(7);
 els.dateTo.value = todayISO();
+updateOverlayState();
 loadShops({ reset: true })
   .then(() => checkSelectedShopToken({ notifyTokenIssue: false }))
   .catch((error) => showToast(error.message));
+loadReportJobs().catch((error) => showToast(error.message));
 renderReportJobs();

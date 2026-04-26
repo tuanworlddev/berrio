@@ -32,79 +32,79 @@ type financeReportRequest struct {
 }
 
 type financeReportDetail struct {
-	ReportID                    int64           `json:"reportId"`
-	DateFrom                    string          `json:"dateFrom"`
-	DateTo                      string          `json:"dateTo"`
-	CreateDate                  string          `json:"createDate"`
-	Currency                    string          `json:"currency"`
-	ReportType                  int             `json:"reportType"`
-	RrdID                       int64           `json:"rrdId"`
-	GiID                        int64           `json:"giId"`
-	DlvPrc                      flexibleFloat64 `json:"dlvPrc"`
-	FixTariffDateFrom           string          `json:"fixTariffDateFrom"`
-	FixTariffDateTo             string          `json:"fixTariffDateTo"`
-	SubjectName                 string          `json:"subjectName"`
-	NmID                        int64           `json:"nmId"`
-	BrandName                   string          `json:"brandName"`
-	VendorCode                  string          `json:"vendorCode"`
-	TechSize                    string          `json:"techSize"`
-	SKU                         string          `json:"sku"`
-	DocTypeName                 string          `json:"docTypeName"`
-	Quantity                    int             `json:"quantity"`
-	RetailPrice                 flexibleFloat64 `json:"retailPrice"`
-	RetailAmount                flexibleFloat64 `json:"retailAmount"`
-	SalePercent                 int             `json:"salePercent"`
-	CommissionPercent           flexibleFloat64 `json:"commissionPercent"`
-	OfficeName                  string          `json:"officeName"`
-	SellerOperName              string          `json:"sellerOperName"`
-	OrderDt                     flexibleTime    `json:"orderDt"`
-	SaleDt                      flexibleTime    `json:"saleDt"`
-	RrDate                      string          `json:"rrDate"`
-	ShkID                       int64           `json:"shkId"`
-	RetailPriceWithDisc         flexibleFloat64 `json:"retailPriceWithDisc"`
-	DeliveryAmount              int             `json:"deliveryAmount"`
-	ReturnAmount                int             `json:"returnAmount"`
-	DeliveryService             flexibleFloat64 `json:"deliveryService"`
-	GiBoxTypeName               string          `json:"giBoxTypeName"`
-	ProductDiscountForReport    flexibleFloat64 `json:"productDiscountForReport"`
-	SellerPromo                 flexibleFloat64 `json:"sellerPromo"`
-	SPP                         flexibleFloat64 `json:"spp"`
-	KvwBase                     flexibleFloat64 `json:"kvwBase"`
-	Kvw                         flexibleFloat64 `json:"kvw"`
-	SupRatingUp                 flexibleFloat64 `json:"supRatingUp"`
-	IsKgvpV2                    flexibleFloat64 `json:"isKgvpV2"`
-	PpvzSalesCommission         flexibleFloat64 `json:"ppvzSalesCommission"`
-	ForPay                      flexibleFloat64 `json:"forPay"`
-	PpvzReward                  flexibleFloat64 `json:"ppvzReward"`
-	AcquiringFee                flexibleFloat64 `json:"acquiringFee"`
-	AcquiringPercent            flexibleFloat64 `json:"acquiringPercent"`
-	PaymentProcessing           string          `json:"paymentProcessing"`
-	AcquiringBank               string          `json:"acquiringBank"`
-	Vw                          flexibleFloat64 `json:"vw"`
-	VwNds                       flexibleFloat64 `json:"vwNds"`
-	PpvzOfficeName              string          `json:"ppvzOfficeName"`
-	PpvzOfficeID                int             `json:"ppvzOfficeId"`
-	PpvzSupplierName            string          `json:"ppvzSupplierName"`
-	PpvzSupplierInn             string          `json:"ppvzSupplierInn"`
-	DeclarationNumber           string          `json:"declarationNumber"`
-	BonusTypeName               string          `json:"bonusTypeName"`
-	StickerID                   string          `json:"stickerId"`
-	Country                     string          `json:"country"`
-	SrvDbs                      bool            `json:"srvDbs"`
-	Penalty                     flexibleFloat64 `json:"penalty"`
-	AdditionalPayment           flexibleFloat64 `json:"additionalPayment"`
-	RebillLogisticCost          flexibleFloat64 `json:"rebillLogisticCost"`
-	RebillLogisticOrg           string          `json:"rebillLogisticOrg"`
-	PaidStorage                 flexibleFloat64 `json:"paidStorage"`
-	Deduction                   flexibleFloat64 `json:"deduction"`
-	PaidAcceptance              flexibleFloat64 `json:"paidAcceptance"`
-	OrderID                     int64           `json:"orderId"`
-	Kiz                         string          `json:"kiz"`
-	IsB2B                       bool            `json:"isB2b"`
-	TrbxID                      string          `json:"trbxId"`
-	InstallmentCofinancing      flexibleFloat64 `json:"installmentCofinancingAmount"`
-	WibesDiscountPercent        int             `json:"wibesDiscountPercent"`
-	Srid                        string          `json:"srid"`
+	ReportID                 int64           `json:"reportId"`
+	DateFrom                 string          `json:"dateFrom"`
+	DateTo                   string          `json:"dateTo"`
+	CreateDate               string          `json:"createDate"`
+	Currency                 string          `json:"currency"`
+	ReportType               int             `json:"reportType"`
+	RrdID                    int64           `json:"rrdId"`
+	GiID                     int64           `json:"giId"`
+	DlvPrc                   flexibleFloat64 `json:"dlvPrc"`
+	FixTariffDateFrom        string          `json:"fixTariffDateFrom"`
+	FixTariffDateTo          string          `json:"fixTariffDateTo"`
+	SubjectName              string          `json:"subjectName"`
+	NmID                     int64           `json:"nmId"`
+	BrandName                string          `json:"brandName"`
+	VendorCode               string          `json:"vendorCode"`
+	TechSize                 string          `json:"techSize"`
+	SKU                      string          `json:"sku"`
+	DocTypeName              string          `json:"docTypeName"`
+	Quantity                 int             `json:"quantity"`
+	RetailPrice              flexibleFloat64 `json:"retailPrice"`
+	RetailAmount             flexibleFloat64 `json:"retailAmount"`
+	SalePercent              int             `json:"salePercent"`
+	CommissionPercent        flexibleFloat64 `json:"commissionPercent"`
+	OfficeName               string          `json:"officeName"`
+	SellerOperName           string          `json:"sellerOperName"`
+	OrderDt                  flexibleTime    `json:"orderDt"`
+	SaleDt                   flexibleTime    `json:"saleDt"`
+	RrDate                   string          `json:"rrDate"`
+	ShkID                    int64           `json:"shkId"`
+	RetailPriceWithDisc      flexibleFloat64 `json:"retailPriceWithDisc"`
+	DeliveryAmount           int             `json:"deliveryAmount"`
+	ReturnAmount             int             `json:"returnAmount"`
+	DeliveryService          flexibleFloat64 `json:"deliveryService"`
+	GiBoxTypeName            string          `json:"giBoxTypeName"`
+	ProductDiscountForReport flexibleFloat64 `json:"productDiscountForReport"`
+	SellerPromo              flexibleFloat64 `json:"sellerPromo"`
+	SPP                      flexibleFloat64 `json:"spp"`
+	KvwBase                  flexibleFloat64 `json:"kvwBase"`
+	Kvw                      flexibleFloat64 `json:"kvw"`
+	SupRatingUp              flexibleFloat64 `json:"supRatingUp"`
+	IsKgvpV2                 flexibleFloat64 `json:"isKgvpV2"`
+	PpvzSalesCommission      flexibleFloat64 `json:"ppvzSalesCommission"`
+	ForPay                   flexibleFloat64 `json:"forPay"`
+	PpvzReward               flexibleFloat64 `json:"ppvzReward"`
+	AcquiringFee             flexibleFloat64 `json:"acquiringFee"`
+	AcquiringPercent         flexibleFloat64 `json:"acquiringPercent"`
+	PaymentProcessing        string          `json:"paymentProcessing"`
+	AcquiringBank            string          `json:"acquiringBank"`
+	Vw                       flexibleFloat64 `json:"vw"`
+	VwNds                    flexibleFloat64 `json:"vwNds"`
+	PpvzOfficeName           string          `json:"ppvzOfficeName"`
+	PpvzOfficeID             int             `json:"ppvzOfficeId"`
+	PpvzSupplierName         string          `json:"ppvzSupplierName"`
+	PpvzSupplierInn          string          `json:"ppvzSupplierInn"`
+	DeclarationNumber        string          `json:"declarationNumber"`
+	BonusTypeName            string          `json:"bonusTypeName"`
+	StickerID                string          `json:"stickerId"`
+	Country                  string          `json:"country"`
+	SrvDbs                   bool            `json:"srvDbs"`
+	Penalty                  flexibleFloat64 `json:"penalty"`
+	AdditionalPayment        flexibleFloat64 `json:"additionalPayment"`
+	RebillLogisticCost       flexibleFloat64 `json:"rebillLogisticCost"`
+	RebillLogisticOrg        string          `json:"rebillLogisticOrg"`
+	PaidStorage              flexibleFloat64 `json:"paidStorage"`
+	Deduction                flexibleFloat64 `json:"deduction"`
+	PaidAcceptance           flexibleFloat64 `json:"paidAcceptance"`
+	OrderID                  int64           `json:"orderId"`
+	Kiz                      string          `json:"kiz"`
+	IsB2B                    bool            `json:"isB2b"`
+	TrbxID                   string          `json:"trbxId"`
+	InstallmentCofinancing   flexibleFloat64 `json:"installmentCofinancingAmount"`
+	WibesDiscountPercent     int             `json:"wibesDiscountPercent"`
+	Srid                     string          `json:"srid"`
 }
 
 type flexibleFloat64 float64
@@ -245,17 +245,12 @@ func GetReportDetails(ctx context.Context, apiKey string, dateFrom, dateTo time.
 			return nil, fmt.Errorf("error response: status code %d, body: %s", res.StatusCode, string(body))
 		}
 
-		// Đọc và parse body
-		body, err := io.ReadAll(res.Body)
-		_ = res.Body.Close()
-		if err != nil {
-			return nil, fmt.Errorf("failed to read response: %v", err)
-		}
-
 		var details []financeReportDetail
-		if err := json.Unmarshal(body, &details); err != nil {
+		if err := json.NewDecoder(res.Body).Decode(&details); err != nil {
+			_ = res.Body.Close()
 			return nil, fmt.Errorf("failed to decode JSON: %v", err)
 		}
+		_ = res.Body.Close()
 		rateLimitRetries = 0
 
 		// Thoát nếu không còn dữ liệu
